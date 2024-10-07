@@ -3,9 +3,6 @@ using JuMP
 using Printf
 
 
-#include("/sets_v07_26.jl")
-#include("params_v09_09.jl")
-
 # based con bm_v09_09.jl
 # todo: include the feedstoks
 # todo: include the initial loan

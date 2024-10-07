@@ -1,10 +1,48 @@
+# Copyright (C) 2024, UChicago Argonne, LLC
+# All Rights Reserved
+# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, 
+# Economic, and Equity Analysis Model
+# By: Argonne National Laboratory
+# BSD-3 OPEN SOURCE LICENSE
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
+
+# ******************************************************************************
+# DISCLAIMER
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# ******************************************************************************
+
+# vim: tabstop=2 shiftwidth=2 expandtab colorcolumn=80 tw=80
+
+# created @dthierry 2024
+# log:
+
+#80#############################################################################
+
 using DataFrames
 using CSV
 using XLSX 
 using Dates
 
-#include("../mod/dre4m_d.sets_v07_26.jl")
-#include("../mod/dre4m_d.params_v09_09.jl")
 
 function generate_yr_range(p::dre4m_d.params)
     y0 = p.y0
@@ -665,7 +703,7 @@ function write_emission_plant(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets,
 end
 
 
-function postprocess(m, p, s, f0)
+function postprocess_d(m, p, s, f0)
     folder = gen_folder()
     @info "output folder : $(folder)"
     mkdir(folder)

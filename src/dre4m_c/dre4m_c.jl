@@ -40,13 +40,15 @@
 #
 #
 #80#############################################################################
-module dre4m 
-  include("./matrix/mat_struct.jl")
-  include("./gestalt/props.jl")
-  include("./gestalt/modKern.jl")
-  include("./coef/coef_custom.jl")
-  include("./mods/model.jl")
-  include("./post/postprocess.jl")
-  version = VersionNumber(0, 4, 6)
-  @info "dre4m $(version) 2022"
+module dre4m_c
+
+include("./matrix/mat_struct.jl")
+include("./kern/props.jl")
+include("./kern/modKern.jl")
+include("./coef/coef_custom.jl")
+include("./mods/model.jl")
+include("./post/postprocess.jl")
+
+version = VersionNumber(1, 0, 0)
+@info "dre4m_c $(version) 2022"
 end
