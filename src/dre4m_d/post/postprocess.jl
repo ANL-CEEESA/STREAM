@@ -33,7 +33,7 @@
 
 # vim: tabstop=2 shiftwidth=2 expandtab colorcolumn=80 tw=80
 
-# created @dthierry 2024
+# created by David Thierry @dthierry 2024
 # log:
 
 #80#############################################################################
@@ -43,8 +43,13 @@ using CSV
 using XLSX 
 using Dates
 
+"""
+    generate_yr_range(p::params)
 
-function generate_yr_range(p::dre4m_d.params)
+Generates a list that contains the years of analysis.
+
+"""
+function generate_yr_range(p::params)
     y0 = p.y0
     y_sp = p.yr_subperiod
     np = p.n_periods
@@ -57,7 +62,7 @@ end
 """
     gen_folder()
 
-    Generate a string with the folder name.
+Generate a string with the folder name.
 """
 function gen_folder()
     d = now()
@@ -66,47 +71,29 @@ function gen_folder()
     return fname
 end
 
-function write_demand(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
-    
-    # ocp = value.(m[:o_cp][:, :, 1])
-    # ncp = value.(m[:n_cp][:, :, 1])
-    # for l in s.L
-    #     if l == 1
-    #         continue
-    #     end
-    #     ocp += value.(m[:o_cp][:, :, l])
-    #     ncp += value.(m[:n_cp][:, :, l])
-    # end
-    # ocp = reshape(ocp', length(ocp))
-    # ncp = reshape(ncp', length(ncp))
-   
-    # xcoord = 2020:(2020+length(s.P)*length(s.P2)-1)
+"""
+    write_demand(m::JuMP.Model, p::params, s::sets, fname::String)
 
-    #plt = bar(xcoord, ocp, label="Existing+Exp", title="Capacity", dpi=300)
-    #bar!(plt, xcoord, ncp, stack=true, label="New")
-    
+Writes a csv that contains the demand timeseries.
+"""
+function write_demand(m::JuMP.Model, p::params, s::sets, fname::String)
     d = reshape(p.demand', length(p.demand))
     df = DataFrame("demand"=>d)
     CSV.write(fname*"/"*"demand.csv", df)
-    
-    #plot!(plt, xcoord, d, label="Demand", linewidth=2.5)
-    #xlabel!(plt, "Year")
-    #ylabel!(plt, "1e3*tClinker/Year")
-    #savefig(plt, fname*"/"*"demand.png")
-
 end
 
+"""
+    em_df(m::JuMP.Model, p::params, s::sets, fname::String)
 
-
-
-function em_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+Writes a csv that contains the demand timeseries.
+"""
+function em_df(m::JuMP.Model, p::params, s::sets, fname::String)
     #    
     oep1 = value.(m[:o_ep1ge][:, :, 1])
     nep1 = value.(m[:n_ep1ge][:, :, 1])
     
     ou = value.(m[:o_u][:, :, 1]).*p.GcI[:, :, 1]*0.29329722222222
     nu = value.(m[:n_u][:, :, 1]).*p.GcI[:, :, 1]*0.29329722222222
-
 
     for l in s.L
         if l == 1
@@ -124,34 +111,30 @@ function em_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
     ou = Vector(reshape(ou', length(ou)))
     nu = reshape(nu', length(nu))
    
-    #x = 2020:(2020+length(s.P)*length(s.P2)-1)
     yr = generate_yr_range(p)
 
     co2 = reshape(p.co2_budget', length(p.co2_budget))
     
-    #plt = plot(x, co2, label="CO2Budget", linewidth=2.5, dpi=300)
 
-    #bar!(plt, x, oep1, label="Existing+Exp")
-    #bar!(plt, x, nep1, stack=true, label="New")
-    #bar!(plt, x, nu, stack=true, label="New Grid Em")
-    #bar!(plt, x, ou, stack=true, label="Ex+Exp Grid Em")
-
-    #title!(plt, "CO2 emissions") 
-    #xlabel!(plt, "Year")
-    #ylabel!(plt, "kgCO2/Year")
-    #savefig(plt, fname*"/"*"co2budget.png")
-
-    df = DataFrame("yr"=>yr, 
-                   "oep1"=>oep1, "ou"=>ou, "nep1"=>nep1, "nu"=>nu,
-                  "co2budget"=>co2)
+    df = DataFrame(
+       "yr"=>yr, 
+       "oep1"=>oep1, 
+       "ou"=>ou, 
+       "nep1"=>nep1, 
+       "nu"=>nu,
+       "co2budget"=>co2
+    )
 
     CSV.write(fname*"/"*"em.csv", df)
-
 end
 
 
+"""
+    plot_cap_by_rf(m::JuMP.Model, p::params, s::sets)
 
-function plot_cap_by_rf(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets)
+This is not longer used.
+"""
+function plot_cap_by_rf(m::JuMP.Model, p::params, s::sets)
     yr = generate_yr_range(p)
     dyr = DataFrame("yr"=>yr)
 
@@ -177,8 +160,12 @@ function plot_cap_by_rf(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets)
 
 end
 
-"""existing capacity and new capacity"""
-function write_xcp(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    write_xcp(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write existing capacity and new capacity csv files.
+"""
+function write_xcp(m::JuMP.Model, p::params, s::sets, fname::String)
 
     yr = generate_yr_range(p)
 
@@ -201,8 +188,12 @@ function write_xcp(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Str
     return docp, dncp
 end
 
+"""
+    write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
 
-function write_rcp(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+Write retrofit capacity, emission and electricity consumption.
+"""
+function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
 
     dyr = DataFrame("yr"=>yr)
@@ -267,7 +258,12 @@ function write_rcp(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Str
     return drcp
 end
 
-function write_ncp(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write new capacity, emission and electricity consumption.
+"""
+function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
 
     yr = generate_yr_range(p)
 
@@ -313,48 +309,29 @@ function write_ncp(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Str
 end
 
 
+"""
+    write_sinfo(s::sets, fname::String)
 
-#function plot_capacity_by_tech(p::dre4m_d.params, s::dre4m_d.sets, 
-#        drcp::DataFrames.DataFrame,
-#        dncp::DataFrames.DataFrame, fname::String)
-#    
-#   
-#    xcoord = 2020:(2020+length(s.P)*length(s.P2)-1)
-#
-#    #plt = bar(xcoord, drcp[:,2], label="Original", title="Capacity", dpi=300)
-#    for k in s.Kr
-#        if k == 1
-#            continue
-#        end
-#        #bar!(plt, xcoord, drcp[:,k+2], label="Retrofit kind:$(k)", stack=true)
-#    end
-#    for k in s.Kn
-#        if k == 1
-#            continue
-#        end
-#        #bar!(plt, xcoord, dncp[:,k+2], label="New kind:$(k)", stack=true)
-#    end
-#
-#    
-#    d = reshape(p.demand', length(p.demand))
-#    #plot!(plt, xcoord, d, label="Demand", linewidth=3)
-#    #xlabel!(plt, "Year")
-#    #ylabel!(plt, "1e3*tClinker/Year")
-#    #savefig(plt, fname*"/"*"demand_by_tech.png")
-#
-#end
-
-function write_sinfo(s::dre4m_d.sets, fname::String)
-    d = DataFrame("n_loc"=>[length(s.L)], 
-                  "n_rtft"=>[length(s.Kr)], 
-                  "n_new"=>[length(s.Kn)],
-                  "n_fu"=>[length(s.Fu)],
-                  "n_p"=>[length(s.P)],
-                  "n_p2"=>[length(s.P2)])
+Write info file in a csv file.
+"""
+function write_sinfo(s::sets, fname::String)
+    d = DataFrame(
+      "n_loc"=>[length(s.L)], 
+      "n_rtft"=>[length(s.Kr)], 
+      "n_new"=>[length(s.Kn)],
+      "n_fu"=>[length(s.Fu)],
+      "n_p"=>[length(s.P)],
+      "n_p2"=>[length(s.P2)],
+    )
     CSV.write(fname*"/"*"s_info.csv", d)
 end
 
-function write_switches(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    write_switches(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write the discrete variables.
+"""
+function write_switches(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
     dyr = DataFrame("yr"=>yr)
     for l in s.L
@@ -375,13 +352,14 @@ function write_switches(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname
     CSV.write(fname*"/"*"dyr.csv", dyr)
     CSV.write(fname*"/"*"dyn.csv", dyn)
     
-    d = DataFrame("n_loc"=>[length(s.L)], 
-                  "n_rtft"=>[length(s.Kr)], 
-                  "n_new"=>[length(s.Kn)],
-                  "n_fu"=>[length(s.Fu)],
-                  "n_p"=>[length(s.P)],
-                  "n_p2"=>[length(s.P2)]
-                 )
+    d = DataFrame(
+      "n_loc"=>[length(s.L)], 
+      "n_rtft"=>[length(s.Kr)], 
+      "n_new"=>[length(s.Kn)],
+      "n_fu"=>[length(s.Fu)],
+      "n_p"=>[length(s.P)],
+      "n_p2"=>[length(s.P2)]
+    )
 
     CSV.write(fname*"/"*"lrn_info.csv", d)
 
@@ -405,14 +383,15 @@ function write_switches(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname
     CSV.write(fname*"/"*"dyo.csv", dyo)
     CSV.write(fname*"/"*"dye.csv", dye)
 
-
-    return dyr, dyn
-
 end
 
 
-"""electricity"""
-function elec_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    elec_df(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write electricity consumption numbers (aggregated).
+"""
+function elec_df(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
     
     ou = value.(m[:o_u][:, :, 1])
@@ -454,7 +433,12 @@ function elec_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Strin
 end
 
 
-function n_loan_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    n_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write loan balance for new plants.
+"""
+function n_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
 
     d = DataFrame("yr"=>yr)
@@ -466,8 +450,12 @@ function n_loan_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Str
     CSV.write(fname*"/"*"dnloan.csv", d)
 end
 
-"""retirement"""
-function tret_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    tret_df(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write retirement payment amounts.
+"""
+function tret_df(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
 
     d = DataFrame("yr"=>yr)
@@ -480,8 +468,12 @@ function tret_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Strin
     CSV.write(fname*"/"*"tret.csv", d)
 end
 
-"""e loan df"""
-function e_loan_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    e_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write loan balance for expansion.
+"""
+function e_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
 
     d = DataFrame("yr"=>yr)
@@ -502,8 +494,12 @@ function e_loan_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Str
     CSV.write(fname*"/"*"deloan.csv", d)
 end
 
-"""retrofit loan"""
-function r_loan_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    r_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write loan balance for retrofit.
+"""
+function r_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
     d = DataFrame("yr"=>yr)
 
@@ -520,10 +516,24 @@ function r_loan_df(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::Str
 end
 
 """
- ns: is the string of names
+    write_fuel_results(
+        m::JuMP.Model,
+        p::params,
+        s::sets,
+        ns::Vector{String},
+        fname::String
+    )
+
+Write fuel consumption results. `ns` is a vector that contains the names of the
+fuels.
 """
-function write_fuel_results(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, 
-        ns::Vector{String}, fname::String)
+function write_fuel_results(
+    m::JuMP.Model, 
+    p::params, 
+    s::sets, 
+    ns::Vector{String}, 
+    fname::String
+)
     yr = generate_yr_range(p)
     # by period, year, location, fuel
     #
@@ -595,7 +605,12 @@ function write_fuel_results(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets,
 end
 
 
-function write_exp_results(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fname::String)
+"""
+    write_exp_results(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Write the capacity expansion results into a csv file. 
+"""
+function write_exp_results(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
 
     dec = DataFrame("yr"=>yr)
@@ -618,8 +633,12 @@ function write_exp_results(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets, fn
     CSV.write(fname*"/"*"dec_act.csv", dec_d_act)
 end
 
+"""
+    write_exp_results(m::JuMP.Model, p::params, s::sets, fname::String)
 
-function write_emission_plant(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets,fname::String)
+Write the capacity expansion results into a csv file. 
+"""
+function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
     yr = generate_yr_range(p)
     # existing plants
     yo = value.(m[:y_o])
@@ -703,7 +722,12 @@ function write_emission_plant(m::JuMP.Model, p::dre4m_d.params, s::dre4m_d.sets,
 end
 
 
-function postprocess_d(m, p, s, f0)
+"""
+    postprocess_d(m::JuMP.Model, p::params, s::sets, fname::String)
+
+Use the `JuMP.Model` and reshape, then write the results in csv format. 
+"""
+function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     folder = gen_folder()
     @info "output folder : $(folder)"
     mkdir(folder)
