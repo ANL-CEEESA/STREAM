@@ -3,7 +3,7 @@
 # Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, 
 # Economic, and Equity Analysis Model
 # By: Argonne National Laboratory
-# BSD OPEN SOURCE LICENSE
+# BSD-3 OPEN SOURCE LICENSE
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -32,6 +32,7 @@
 # ******************************************************************************
 
 # vim: tabstop=2 shiftwidth=2 expandtab colorcolumn=80 tw=80
+# created by David Thierry @dthierry 2022
 
 import Dates
 
