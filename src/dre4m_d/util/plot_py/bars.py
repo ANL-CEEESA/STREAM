@@ -1,3 +1,43 @@
+# Copyright (C) 2023, UChicago Argonne, LLC
+# All Rights Reserved
+# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental,
+# Economic, and Equity Analysis Model
+# By: Argonne National Laboratory
+# BSD-3 OPEN SOURCE LICENSE
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
+
+# ******************************************************************************
+# DISCLAIMER
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# ******************************************************************************
+
+# vim: expandtab colorcolumn=80 tw=80
+
+# created by David Thierry @dthierry 2024
+#
+#
+# 80############################################################################
+
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -7,11 +47,15 @@ import sys
 
 __author__ = "David Thierry @dthierry"
 
+
+# 80############################################################################
 def pltrcparams():
     plt.rcParams.update({'font.size': 16})
     rfigsize = plt.rcParams['figure.figsize']
     plt.rcParams['figure.figsize'] = [rfigsize[0]*1.05, rfigsize[1]*1.05]
 
+
+# 80############################################################################
 def main():
     try:
         arg = sys.argv[1]
@@ -94,17 +138,17 @@ def main():
         "#6a5ee6"
     ]
 
-    labr = ["Orig", # 1
-            "r:Efficiency", # 2
-            "r:Coal->H2", # 5
-            "r:Full elec", # 7
-            "r:CCUS", # 8
+    labr = ["Orig",  # 1
+            "r:Efficiency",  # 2
+            "r:Coal->H2",  # 5
+            "r:Full elec",  # 7
+            "r:CCUS",  # 8
             ]
-    labn = ["N/A", # 1
-            "n:Efficiency", # 2
-            "n:Coal->H2", # 5
-            "n:Full elec", # 7
-            "n:CCUS", # 8
+    labn = ["N/A",  # 1
+            "n:Efficiency",  # 2
+            "n:Coal->H2",  # 5
+            "n:Full elec",  # 7
+            "n:CCUS",  # 8
             ]
     labr = ["Incumbent", # 1
             "r:Alt 1", # 2
@@ -153,7 +197,7 @@ def main():
     plot_em_bar_v2(rf, folder, colors, labr, labn)
 
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
+# 80############################################################################
 def plot_emisions(rf, folder, xaxislabel=None):
     emf = rf +"/em.csv"
 
@@ -163,7 +207,7 @@ def plot_emisions(rf, folder, xaxislabel=None):
     #x = x[0:p_scale]
 
     if xaxislabel == "year":
-        xvals = df.iloc[:,0]
+        xvals = df.iloc[:, 0]
         w = (df.iloc[1, 0] - df.iloc[0, 0]) * 0.8
     else:
         xvals = np.arange(df.shape[0])
@@ -206,7 +250,8 @@ def plot_emisions(rf, folder, xaxislabel=None):
     legend_object = a.get_legend()
     export_legend(legend_object, filename=folder + "legend_co2.png")
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
+
+# 80############################################################################
 def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     cprf = rf + "/drcp.csv"
     cpnf = rf + "/dncp.csv"
@@ -218,7 +263,7 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     dfd = pd.read_csv(demf)
 
     if xaxislabel == "year":
-        xvals = dfr.iloc[:,0]
+        xvals = dfr.iloc[:, 0]
         w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
     else:
         xvals = np.arange(dfr.shape[0])
@@ -262,8 +307,7 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     export_legend(legend_object, filename=folder + "legend_cap.png")
 
 
-
-#####---##### #####---##### #####---##### #####---##### #####---#####
+# 80############################################################################
 def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
     uf = rf +"/u.csv"
 
@@ -303,7 +347,7 @@ def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
     export_legend(legend_object, filename=folder + "legend.png")
 
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
+# 80############################################################################
 def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
 
     rlf = rf + "/drloan.csv"
@@ -381,7 +425,7 @@ def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
     export_legend(legend_object, filename=folder + "legend_loan.png")
 
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
+# 80############################################################################
 def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
     rep1f = rf + "/drep1.csv"
     nep1f = rf + "/dnep1.csv"
@@ -432,8 +476,7 @@ def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
     export_legend(legend_object, filename=folder + "legend_ep1.png")
 
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
-#du.csv
+# 80############################################################################
 def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
     ruf = rf + "/dru.csv"
     nuf = rf + "/dnu.csv"
@@ -442,7 +485,7 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
     dnu = pd.read_csv(nuf)
 
     if xaxislabel == "year":
-        xvals = dru.iloc[:,0]
+        xvals = dru.iloc[:, 0]
         w = (dru.iloc[1, 0] - dru.iloc[0, 0]) * 0.8
     else:
         xvals = np.arange(dru.shape[0])
@@ -485,14 +528,15 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
     legend_object = a.get_legend()
     export_legend(legend_object, filename=folder + "legend_elec_rf.png")
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
+
+# 80############################################################################
 def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
     ef = rf + "/dec_act.csv"
     de = pd.read_csv(ef)
     b = pd.Series(de.shape[0])
 
     if xaxislabel == "year":
-        xvals = de.iloc[:,0]
+        xvals = de.iloc[:, 0]
         w = (de.iloc[1, 0] - de.iloc[0, 0]) * 0.8
     else:
         xvals = np.arange(de.shape[0])
@@ -523,7 +567,7 @@ def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
     export_legend(legend_object, filename=folder + "legend_ec.png")
 
 
-
+# 80############################################################################
 def export_legend(legend, filename="legend.png"):
     """Put the legend in a png different file.
     """
@@ -536,7 +580,7 @@ def export_legend(legend, filename="legend.png"):
     fig.savefig(filename, dpi=300, bbox_inches=bbox)
 
 
-#####---##### #####---##### #####---##### #####---##### #####---#####
+# 80############################################################################
 def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     cprf = rf + "/drcp_d_act.csv"
     cpnf = rf + "/dncp_d.csv"
@@ -550,7 +594,7 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
     if xaxislabel == "year":
-        xvals = dfr.iloc[:,0]
+        xvals = dfr.iloc[:, 0]
         w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
     else:
         xvals = np.arange(dfr.shape[0])
@@ -598,6 +642,7 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     f.savefig(folder + "demand-loc.png", dpi=300)
 
 
+# 80############################################################################
 def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     cprf = rf + "/drcp_d_act.csv"
     cpnf = rf + "/dncp_d.csv"
@@ -622,7 +667,7 @@ def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
 
     if xaxislabel == "year":
-        xvals = dfr.iloc[:,0]
+        xvals = dfr.iloc[:, 0]
         w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
     else:
         xvals = np.arange(dfr.shape[0])
@@ -668,6 +713,7 @@ def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     f.savefig(folder + "pie_chart.png", dpi=300)
 
 
+# 80############################################################################
 def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
     # retrofits
     rcpe = rf + "/drcpe.csv"
@@ -713,7 +759,6 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
               width=w, bottom=b, lw=0.0, color="#dd0436",
               align="edge", edgecolor="w", label=label, alpha=0.5)
         b += drcpe.iloc[:, i]
-
 
     last = drfue.shape[1]
     for i in range(1, drfue.shape[1]):
@@ -772,17 +817,14 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
     #           align="edge", edgecolor="w", hatch="//", label=label)
     #     b += dnuem.iloc[:, i]
 
-
     b = pd.Series(np.zeros(dncpe.shape[0]))
 
     if xaxislabel == "year":
-        xvals = drcpe.iloc[:,0]
+        xvals = drcpe.iloc[:, 0]
         w = (drcpe.iloc[1, 0] - drcpe.iloc[0, 0]) * 0.7
     else:
         xvals = np.arange(drcpe.shape[0])
         w = 0.7
-
-
 
     last = drep1.shape[1]
     for i in range(1, drep1.shape[1]):
@@ -847,6 +889,3 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
 
 if __name__ == "__main__":
     main()
-
-
-

@@ -1,0 +1,1129 @@
+% File: report.tex
+% Author: David Thierry
+% 
+% vim: tw=80 fo=cqt
+% uploaded Nov 30 11:14 am
+\documentclass{amsart}
+
+\usepackage[english]{babel}
+\usepackage{amsmath}
+\usepackage{bm}
+
+
+\usepackage[letterpaper, margin=1in]{geometry}
+
+\usepackage{float}
+\usepackage{tabularx}
+\usepackage{longtable}
+\usepackage{hyperref}
+\usepackage{graphicx}
+\usepackage[title]{appendix}
+
+%
+\DeclareFontFamily{U}{matha}{\hyphenchar\font45}
+\DeclareFontShape{U}{matha}{m}{n}{ <-6> matha5 <6-7> matha6 <7-8>
+matha7 <8-9> matha8 <9-10> matha9 <10-12> matha10 <12-> matha12 }{}
+\DeclareSymbolFont{matha}{U}{matha}{m}{n}
+\DeclareMathSymbol{\myvee}{\mathbin}{matha}{"5F}
+\newcommand{\myveebar}{\mathbin{\vcenter{\hbox{$ \underline{\mkern-2.4mu{\myvee}\mkern-2.4mu} $}}}}
+
+
+\begin{document}
+
+\title{\texttt{DRE4M} discrete version equations.}
+\author{David Thierry \{dthierry@anl.gov\}}
+
+
+\date{\today}
+\maketitle
+%\pgfdeclarelayer{background}
+%\pgfdeclarelayer{foreground}
+%\pgfsetlayers{background,main,foreground}
+
+\begin{abstract}
+%------------------------------------------------------------------------------
+The diversification of the technological makeup of all economic sectors towards
+higher efficiency, carbon neutrality, and cost-effective technologies, is a key
+challenge towards achieving carbon neutrality and
+stabilizing global warming by 2050.  
+In order to achieve the projected climate goals, it is required to generate plans
+that restructure the different sectors across the economy to meet the target
+greenhouse gas (GHG) output levels, 
+while also considering the technological, economic, and 
+social issues associated with it.
+This is a nontrivial task because these economic sectors have substantial 
+heterogeneity and complex interactions among its components, therefore an 
+analysis reflecting the planning of feasible technological changes toward 
+net neutrality, needs adaptability to varying degrees of granularity.
+
+In the face of this situation, this manuscript proposes a mathematical 
+framework to address the strategies in
+the technological diversification of a sector through retirement,
+and retrofitting of its existing assets or capacity, alongside with the
+deployment of new capacity from a set of available technologies. This is
+simultaneously done with the 
+accounting for carbon dioxide emissions, energy requirements, and demand
+constraints, while minimizing the Net Present Value (NPV) of the system over a
+time horizon.  The proposed framework is denominated as the Decarbonization Road
+mapping and Energy, Environmental, Economic, and Equity Analysis Model (DRE$^4$M).
+It was implemented in the Julia language intended to be a piece of open-source
+software.
+
+\end{abstract}
+%\listoftodos
+%------------------------------------------------------------------------------
+\section{Methodology}\label{methodology}
+%
+\subsection{Sets, initial assumptions, and notation}
+%
+Throughout this section variables and constraints are defined with respect to
+the following sets, 
+
+\begin{tabular}{@{}ll@{}}
+
+    $I$	&	Technology set ($\left\lbrace \text{tech 0}, \text{tech 1}, 
+    \dots\right\rbrace$)	\\
+    $I_F$	&	Fuel-based technology set ($I_F \subseteq I$) \\
+    $I_C$	&	Carbon-based technology set ($I_C \subseteq I_F$) \\
+
+    $K_i$	&	Sub-technology for existing assets	\\
+    $\tilde{K}_i$	&	Sub-technology for new assets	\\
+    $L_i$	&	Above service life set for existing assets 
+    ($L_i \subseteq T \times N_i$)	\\
+    $\tilde{L}_i$	&	Above service life set for new assets ($\subseteq T 
+    \times T$).	\\
+    $N_j$	&	Initial age of existing asset set ($N_j \subseteq 
+    \mathbb{Z}_{\geq 0}$)	\\    
+    $T$	&	Time set ($\left\lbrace 0, 1, \dots, \mathtt{horizon}
+    \right\rbrace$)	\\
+\end{tabular}
+%
+
+\smallskip
+
+All the variables presented in the following subsections are indexed by the
+time, technology index, and a proxy of age, unless specified otherwise. 
+Three kinds of assets are
+recognized within the framework – existing, retrofitted, and new. The term
+`asset' is used in broad sense, depending of the context, although in every 
+instance, an asset is something takes in energy, material, labor, or economic 
+inputs and uses that to make economically useful energy or material products and wastes.
+
+An asset can be a \emph{production unit}, e.g., a coal-fired power plant, or it 
+can refer to \emph{production capacity}, e.g., the \emph{ton/hr} of cement produced. 
+An `existing asset' refers to an asset that was in place prior to the start of the 
+analysis time horizon.
+%
+For existing and retrofitted assets of kind $i\in I$, the set $N_i$ represents
+the age distribution at the beginning of the horizon, e.g.\ $N_{\text{tech 0}}
+:= \left\lbrace 2, 4\right\rbrace$ implies that at $t=0$ the assets of kind
+`tech 0' have ages of `2' and `4'. New assets, on the other hand, use the
+time set $T$ for their initial age because all the new allocations happen at
+some point within the horizon. The age of an asset in any given time step can be
+inferred using the time index and the initial age of the asset in accordance with 
+the kind of asset (new, retrofitted, existing). For existing and retrofitted assets, 
+age can be calculated as $\mathtt{age} = t+j$, and for new assets, $\mathtt{age} = t-j,\; t\geq j$.
+%
+
+The time, technology, and initial age of a variable is shown using a
+combination of superscripts and subscripts, e.g., $x^t_{i,k,j}$, where $t$
+denotes time, and the subscripts $(i,k,j)$ denote technology, sub-technology
+and initial age respectively. Both retrofitted and new assets possess a
+sub-technology set $K_i$ and $\tilde{K}_i$ respectively, which indicates that
+these assets derive from a base technology $i\in I$, e.g.\ a coal-fired power
+plant with carbon capture derives from a base coal-fired plant.
+
+% Other sets used in % the model, include $\tilde{K}_i$ which denotes the sub-technology 
+%set for % \emph{new} assets, $L_i$ and $\tilde{L}_i$, which are both subset of the
+% product of the time and age sets for existing and new assets respectively.  
+%All
+%the sets mentioned thus far are summarized in Table~\ref{tab:sets}.
+%
+The variables of the model are assumed to be non-negative, unless specified
+otherwise. The current model has been devised to be linear. However, the nature 
+of the variables is contingent upon the context, for instance,  
+modelling a small group of residential buildings versus modelling 
+the aggregate electric power generation capacity of the United States. 
+%As a consequence, the computational tractability
+%will be tied to the case study.
+%i
+The variables representing building assets denote entities of indivisible 
+nature, i.e., integer variables representing an individual building. 
+On the other hand, the electricity generation assets could be assumed 
+to represent \emph{capacity} in a continuous manner, i.e., continuous 
+variables representing MW of electric generation capacity. It follows 
+that the core methodology of this manuscript applies to both continuous 
+and discrete variables, and that the nature of these variables will 
+require solution strategies of significantly different computational 
+complexities. For the purposes of demonstration of the problem framework 
+and discussion of the results of the case study that follow, we will 
+assume a continuous treatment of asset variables.
+Next is a list of the variables and parameters with their descriptions
+used in the next subsection.
+
+
+\begin{centering}
+\begin{tabular}{@{}ll@{}}
+    \textbf{Variables:} &   \\ 
+    $\mathtt{NPV}$          & net present value      \\
+    $\mathtt{softSl}$          &   overall soft service life penalty    \\
+    $\mathtt{termCost}$          & overall terminal cost      \\
+    %
+    $u^t_{i,j}$	&	retired assets	amount\\
+    $\overline{u}^t_{i,k,j}$	&	retired retrofitted assets amount.	\\
+    %
+    $v^t_{i,k,j}$	&	retired new assets amount	\\
+    %
+    $w^t_{i,j}$	&	existing assets	amount \\
+    $W^t_{i,j}$	&	effective capacity	\\
+    $\mathtt{wCo}^t_{i,j}$	&	carbon dioxide emission for existing assets	\\
+    $\mathtt{wFuelC}^t_{i}$	&	fuel cost for existing assets	\\
+    $\mathtt{wFixOnM}^t_i$	&	fixed cost of O\&M for existing assets	\\
+    $\mathtt{wHeat}^t_{i,j}$	&	heat requirement for existing	\\
+    $\mathtt{wProd}^t_{i,j}$	&	production of existing assets	\\
+    $\mathtt{wRetC}^t_{i,j}$	&	retirement cost	\\
+    $\mathtt{wSoftSl}$	&	soft retirement penalty	\\
+    $\mathtt{wTermC}_{i,j}$	&	terminal cost	\\
+    $\mathtt{wVarOnM}^t_{i}$	&	variable cost of O\&M for existing assets\\
+    %
+    $x^t_{i,k,j}$	&	new assets amount	\\
+    $X^t_{i,k,j}$	&	effective new capacity	\\
+    $\tilde{x}^t_{i,k}$	&	new asset allocation	\\
+    $\mathtt{xCap}^t_{i,k}$	&	overnight capital cost for new assets	\\
+    $\mathtt{xProd}^t_{i,k,j}$	&	production of new assets	\\
+    $\mathtt{xRetC}^t_{i,k,j}$	&	retirement cost for new assets	\\
+    $\mathtt{xSoftSl}$	&	soft retirement penalty for new assets	\\
+    $\mathtt{xTermC}_{i,k,j}$	&	terminal cost for new assets	\\
+    %
+    $y^t_{i, k,j}$	&	transitioned to retrofitted assets amount	\\
+    %
+    $z^{t}_{i,k,j}$	&	retrofitted assets amount	\\
+    $Z^t_{i,k,j}$	&	effective retrofit capacity	\\
+    $\mathtt{zCap}^t_{i,k}$	&	overnight capital cost for retrofitted assets\\
+    $\mathtt{zRetC}^t_{i,k,j}$	&	retirement cost for retrofitted assets\\
+    $\mathtt{zSoftSl}$	&	soft retirement penalty for retrofitted assets\\
+    $\mathtt{zTermC}_{i,k,j}$	&	terminal cost for retrofitted assets\\
+\end{tabular}
+\end{centering}
+
+\begin{centering}
+    \begin{tabular}{@{}ll@{}}
+    \textbf{Parameters:} &   \\
+    $\mathtt{co2Budget}^t$	&	carbon dioxide budget	\\
+    $\mathtt{cFact}_{i,j}$	&	capacity factor	\\
+    $\Delta_{i,k}$              &       Lead time for new assets\\
+    $\overline{\Delta}_{k,j}$   &       Lead time for retrofitted assets.\\
+    $\mathtt{demand}^t$	&	effective capacity	\\
+    $\mathtt{initCap}_{i,j}$    &       Initial asset/capacity matrix\\
+    $\mathtt{kTime}$	&   scaling factor for time		\\
+    $\mathtt{kTermC}$	& scaling scalar for terminal cost		\\
+    $\mathtt{fFuelC}_{i,k}(t,j)$	&   (function) fuel cost per heat unit	\\
+    $\mathtt{fFixCost}_{i,k}(t,j)$	&   (function) O\&M fixed cost	\\
+    $\mathtt{fHeatRate}_{i,k}(t,j)$	&   (function) heat rate per production
+    unit \\
+    $\mathtt{fVarCost}_{i,k}(t,j)$	&   (function) O\&M variable cost	\\
+    $\mathtt{fPenalty}_{i}$	&	(function) service life penalty	\\
+    $\mathtt{fRetCost}_{i,k}$	&	(function) retirement cost	\\
+    $\mathtt{sLife}_i$	&   service life \\
+    \end{tabular}
+\end{centering}
+
+
+\subsection{Constraints}
+%%%%%%%%%%%
+\subsubsection{Core: Asset tracking}
+%
+\noindent 
+%
+%------------------------------------------------------------------------------
+At the core of the model is a \emph{stock-and-flow engine}, with equations 
+containing decision variables that govern and track the evolution of assets 
+over time. The variables used in this section represent three possible states 
+of an asset – existing, retirement, and allocation. 
+%Next is a list of the variables and 
+%parameters followed by the model constraints and their descriptions.
+
+%\smallskip
+%\noindent
+%\textbf{Variables:} \\
+%\begin{tabular}{@{}ll@{}}
+%    \textbf{Variables:} &   \\ 
+%    $v^t_{i,k,j}$	&	retired new assets amount	\\
+%    $w^t_{i,j}$	&	existing assets	amount \\
+%    $u^t_{i,j}$	&	retired assets	amount\\
+%    $\overline{u}^t_{i,k,j}$	&	retired retrofitted assets amount.	\\
+%    $x^t_{i,k,j}$	&	new assets amount	\\
+%    $\tilde{x}^t_{i,k}$	&	new asset allocation	\\
+%    $y^t_{i, k,j}$	&	transitioned to retrofitted assets amount	\\
+%    $z^{t}_{i,k,j}$	&	retrofitted assets amount	\\
+%\end{tabular}
+
+
+%\smallskip
+%\noindent
+%\textbf{Parameters:} \\
+%\begin{tabular}{@{}ll@{}}
+%    \textbf{Parameters:} &   \\ 
+%    $\mathtt{initCap}_{i,j}$    &       Initial asset/capacity matrix\\
+%    $\Delta_{i,k}$              &       Lead time for new assets\\
+%    $\overline{\Delta}_{k,j}$   &       Lead time for retrofitted assets.\\
+%\end{tabular}
+%Let $w^t_{i,j}$ represent an asset of kind $i \in I$ of \emph{initial} age $j
+%\in N_i$ at some period $t\in T$. 
+\paragraph{Existing asset balance.}
+%
+In the model it assumed that any existing asset or capacity has two possible
+pathways in time, i.e.\ retrofitting and retirement. Let $w^t_{i,j},
+y^t_{i,k,j},u^{t}_{i,j}\in\mathbb{R}_{\geq 0}$ denote the existing, transition
+to retrofitted and retired assets respectively. Then, at time $t$, an existing
+asset can remain the same, transition to retrofitted asset, or get retired. This
+dynamic is shown in Figure~\ref{fig:wuyyy}, and it can be interpreted as the
+existing asset balance equation as follows,
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.5\linewidth]{./pics/wuyyy.pdf}
+    \caption{Asset retirement and retrofitting.\label{fig:wuyyy}}
+\end{figure}
+%
+\begin{equation}
+  w^{t+1}_{i,j} = w^{t}_{i,j} - u^{t}_{i,j} - \sum_{k \in K_i} y^{t}_{i, k,j}, 
+  \; \forall t \in T, i \in I, j \in N_i.
+\label{eq:wbal}
+\end{equation}
+%
+Once an asset is retired, it no longer plays any role in the energy system. 
+%
+\paragraph{Retrofit asset balance.}
+%
+The transition to retrofitted assets $y^t_{i,k,j}$ enter a separate balance
+similar to the one of existing assets of Equation~\eqref{eq:wbal}. For this,
+$z^t_{i,k,j}, \overline{u}^t_{i,k,j}\in\mathbb{R}_{\geq 0}$ represent the
+existing retrofitted and retrofitted-retired assets. Their balance can be
+represented as in Figure~\ref{fig:zuyy}, and is written as follows,
+%
+\begin{figure}[ht]
+   \centering
+   \includegraphics[width=0.5\linewidth]{./pics/zuyyy.pdf} 
+   \caption{Retrofitted asset balance.} 
+\label{fig:zuyy} 
+\end{figure}
+%
+\begin{equation}
+    z^{t+1}_{i,k,j} = z^{t}_{i,k,j} - \overline{u}^t_{i,k,j} + y^t_{i,k,j},\;
+    \forall 
+  t \in T, i \in I, k \in K_i, j \in N_i.
+\label{eq:zeqzrf}
+\end{equation}
+%
+%The retrofitted assets modify their base counterparts properties in a way that
+%may be favorable to the system. 
+%The retrofits provide flexibility to the energy system by being available at a
+%relatively low-cost while overriding some of the properties of the underlying
+%assets. 
+%
+\paragraph{New asset balance.}
+As previously described, existing assets can experience a number of outcomes
+over time. However, additional assets on top of the existing ones might be
+required, for instance, if demand grows, or assets of a certain kind become
+prohibited from take part in the system.  The distinction between \emph{new}
+and \emph{existing} assets is made as whether the asset was created at some
+point before time $t=0$ (existing) or after (new). Moreover, new assets do not
+necessarily have the same properties of the existing counterparts, e.g.\ because
+of improvements in the state of art of technology.  It is noted that, though the
+retrofit of a new is conceptually similar to the ideas depicted in
+Figure~\ref{fig:wuyyy}, these are not enabled for the current iteration of the
+model.  Therefore, let $x^{t}_{i,k,j}, v^t_{i,k,j}\in \mathbb{R}_{\geq 0}$
+represent the new and retired-new assets respectively, and the balance for new
+assets is shown in Figure~\ref{fig:xux} and written as follows,
+%
+\begin{figure}[ht]
+   \centering
+   \includegraphics[width=0.5\linewidth]{./pics/xux2.pdf} 
+   \caption{New asset balance.} \label{fig:xux} 
+\end{figure}
+%
+\begin{equation}
+    x^{t+1}_{i,k,j} = x^{t}_{i,k,j} - v^t_{i,k,j} 
+    ,\; \forall 
+    t,j \in T, i \in I, k \in \tilde{K}_i.
+\label{eq:xbal}
+\end{equation}
+%
+\paragraph{New asset allocation.}
+The dynamics of new assets are predicated by the allocation decision, i.e.\ the
+amount of new assets created at a particular time. These are represented
+by $\tilde{x}^t_{i,k}\in\mathbb{R}_+$ and it is linked to the new assets through
+the next equation,
+%
+\begin{equation}
+    x^t_{i,k,t} = \tilde{x}^t_{i,k}, \; 
+    \forall t\in T, i\in I, k\in \tilde{K}_i.
+    \label{eq:xeqxal}
+\end{equation}
+%
+\paragraph{Initial capacity.}
+%
+The existing assets at time $t=0$ is exogenous information which is linked to
+the model with the following equation, 
+%
+\begin{equation}
+    w^0_{i,j} = \mathtt{initCap}_{i,j}, \; \forall i\in I, j\in N_i,
+\end{equation}
+%
+in which the matrix $\mathtt{initCap}_{i,j}$ has the data indexed by technology
+and age. Initial retrofitted capacities ($z^0_{i,k,j}$) are assumed to be zero,
+i.e.,
+%
+\begin{equation}
+    z^0_{i,k,j} = 0, \; \forall i\in I, k \in K_i, j\in N_i.
+\end{equation}
+%
+%
+%%%%%%%%%%%
+\paragraph{Lead times modifications.}
+%%%%%%%%%%%
+To account for the delays that occur from the allocation decision to the point
+of deployment, modifications on constraints~\eqref{eq:xeqxal} 
+and~\eqref{eq:zeqzrf} are required. 
+%
+%One of the issues with the deployment of new capacity and retrofitting is the
+%time amount that exists between the decision making and the beginning of
+%operation of the capacity. 
+%
+%These time constraints might be associated with the construction, connection
+%with supply, etc. 
+%
+%The timing considerations impact the
+%decisions of the kind of technology/retrofit that can be deployed, e.g.\ if a
+%cost-effective decision can not be available in time to satisfy demand. 
+Let $\Delta_{i,k}$ denote the lead time for new allocations of kind $i,k$, then
+every new allocation is followed by an offline period given by $\Delta_{i,k}$ as
+shown in Figure~\ref{fig:leadTime}. This condition is reflected by modifying
+Equation~\eqref{eq:xeqxal} as follows,
+%
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.5\linewidth]{./pics/leadtime.pdf}
+    \caption{Lead time: there is a $\Delta_{i,k}$ time amount for which new
+    capacities will be offline after allocation.} \label{fig:leadTime}
+\end{figure}
+%
+\begin{equation}
+    x^t_{i,k,t} = \tilde{x}^{t-\Delta_{i,k}}_{i,k}, \; 
+    \forall t,j\in T, i\in I, k\in \tilde{K}_i,
+\end{equation}
+%
+in which the right-hand-side contains the lead time effect. 
+%
+Similarly, the effect on the retrofit lead time $\overline{\Delta}_{k,j}$
+modifies Equation~\eqref{eq:zeqzrf}, i.e.
+%
+\begin{equation}
+    z^{t+1}_{i,k,j} = z^{t}_{i,k,j} - \overline{u}^t_{i,k,j} + 
+    y^{t-\overline{\Delta}_{i,k}}_{i,k,j},\;
+    \forall 
+  t \in T, i \in I, k \in K_i, j \in N_i.
+\end{equation}
+%
+%
+
+\subsubsection{Core: Soft service life, retirement, and terminal cost}
+%%%%%%%%%%%
+%
+By construction, the current iteration of the model allows assets to take part
+in the system for an indefinite amount of time, in other words, a `soft'
+approach for the service life is taken. As an asset moves forward into the
+horizon some of its properties might be affected negatively. Moreover, assets
+above the service life can be set to experience effects that bias
+the solution toward rejecting them from the system, for instance by introducing
+a penalty into the objective function. The advantage of soft
+retirement is that assets of particular technologies can be set to have either
+neutral or negative attitude toward above service life operation. 
+%The following
+%variable, parameters, and equations provide this capability to the model.
+%
+
+%\smallskip
+%\noindent
+%\textbf{Variables:} \\
+%\begin{centering}
+%    \begin{tabular}{@{}ll@{}}
+%    \textbf{Variables:} &   \\ 
+%        $\mathtt{wRetC}^t_{i,j}$	&	retirement cost	\\
+%        $\mathtt{wSoftSl}$	&	soft retirement penalty	\\
+%        $\mathtt{wTermC}_{i,j}$	&	terminal cost	\\
+        %
+%        $\mathtt{xRetC}^t_{i,k,j}$	&	retirement cost for new assets	\\
+%        $\mathtt{xSoftSl}$	&	soft retirement penalty for new assets	\\
+%        $\mathtt{xTermC}_{i,k,j}$	&	terminal cost for new assets	\\
+        %
+%        $\mathtt{zRetC}^t_{i,k,j}$	&	retirement cost for retrofitted 
+%        assets\\
+%        $\mathtt{zSoftSl}$	&	soft retirement penalty for retrofitted 
+%        assets\\        
+%        $\mathtt{zTermC}_{i,k,j}$	&	terminal cost for retrofitted 
+%        assets	\\
+%    \end{tabular}
+%\end{centering}
+
+%\smallskip
+%\noindent
+%\textbf{Parameters:} \\
+%\begin{centering}
+%    \begin{tabular}{@{}ll@{}}
+%    \textbf{Parameters:} &   \\ 
+%        $\mathtt{fPenalty}_{i}$	&	(function) service life penalty	\\
+%        $\mathtt{fRetCost}_{i,k}$	&	(function) retirement cost	\\
+%        $\mathtt{kTermC}$	& scaling scalar for terminal cost		\\
+%        $\mathtt{sLife}_i$	&   service life \\
+%    \end{tabular}
+%\end{centering}
+% The age of assets is generally reflected negatively in the associated
+% quantities of the system, for instance the heat requirement might increase.
+% Nevertheless, overly-aged assets or capacity must be taken offline in a
+% meaningful way by the model. 
+% For this purpose, a model can either have hard (i.e.\ assets are dropped at
+% the service life) or soft (i.e.\ assets may continue after the service life)
+% approach for retirement.
+% This implies that it is possible to have assets above the service life, however
+% these sustain an increasingly higher form of penalty for every year above it.
+% For this purpose, an arbitrary function for the penalty is required. Such
+% function must increase monotonically with age, so that the older the capacity,
+% the more likely is forced to be retired.
+%
+%
+\paragraph{Soft service life penalty.}
+Let the sets 
+$L_i:=\{\left(t,j\right)\in T\times N_i:t+j\geq \mathtt{sLife}_i\}$
+and $\tilde{L}_i:=\{\left(t,j\right)\in T\times T:t-j\geq \mathtt{sLife}_i\}$
+contain the ages above service life for existing and new assets respectively,
+i.e.\ a combination of time ($t$) and initial ages ($j$). Then, the soft service
+life retirement terms for existing, retrofitted, and new assets are written as
+follows respectively,
+%
+% \footnote{It must be noted that the equations
+% and terms for retrofits can be easily inferred, therefore they are not shown
+% throughout this section for brevity.} 
+%
+%
+\begin{equation}
+    \mathtt{wSoftSl} = \sum_{i\in I} \sum_{\left(t,j\right)\in L_i} 
+    \mathtt{fPenalty}_i \left(t+j\right) \, w^t_{i,j},
+    %\; \forall t \in T, i \in I, j \in N_i.
+\end{equation}
+%
+\begin{equation}
+    \mathtt{zSoftSl} = \sum_{i\in I} 
+    \sum_{k \in K_i} \sum_{\left(t,j\right)\in L} 
+    \mathtt{fPenalty}_i \left(t+j\right) \, z^t_{i,k,j},
+    %\; \forall t \in T, i \in I, j \in N_i.
+\end{equation}
+%
+and,
+%
+\begin{equation}
+    \mathtt{xSoftSl} = \sum_{i\in I} 
+    \sum_{k \in \tilde{K}_i} \sum_{\left(t,j\right)\in\tilde{L}} 
+    \mathtt{fPenalty}_i \left(t-j\right) \, x^t_{i,k,j},
+    %\; \forall t \in T, i \in I, j \in N_i.
+\end{equation}
+%
+where $\mathtt{fPenalty}_i(\mathtt{age})$ is an arbitrary penalty function of
+the age, whose value determines the bias toward letting the underlying asset
+remain in the system. Typically, such function should monotonically increase with
+age make older assets consistently less desirable. An example of the function
+used is shown in Appendix~\ref{appendix}.
+As referred previously, it is possible that only a subset of the technology
+assets have soft retirement effects, therefore the first summation term is
+enabled for such subset, while the remaining assets might remain in the system
+indefinitely. 
+%
+\paragraph{Retirement cost.}
+%
+Regardless of the service life, assets might undergo retirement regularly as
+part of the changes of the system over time, these are captured by the variables
+$u^t_{i,j}, \overline{u}^t_{i,k,j}$, and $v^t_{i,k,j}$. Changes in the nature of
+the asset, e.g.\ a retirement, have a cost component. These costs primarily
+depend on the age of the asset, though additional special considerations can
+also be allowed. Nevertheless, let the function $\mathtt{fRetCost}_{i,k}\!
+\left(t,j\right)$ return the cost of retirement per asset unit as a function of
+time and initial age, then the retirement costs are given as follows,
+%
+\begin{equation}
+    \mathtt{wRetC}^t_{i,j} = \mathtt{fRetCost}_{i,0}\! \left(t,j\right)\, 
+    u^t_{i,j},\; \forall t \in T, i \in I, j \in N_i,
+\end{equation}
+%
+\begin{equation}
+    \mathtt{zRetC}^t_{i,k,j} = \mathtt{fRetCost}_{i,k}\! \left(t,j\right)\,
+    \overline{u}^t_{i,k,j},\; \forall t \in T, i \in I, k \in K_i
+    j \in N_i,
+\end{equation}
+%
+and,
+%
+\begin{equation}
+    \mathtt{xRetC}^t_{i,k,j} = \mathtt{fRetCost}_{i,k}\! \left(t,j\right)\,
+    v^t_{i,k,j}
+    ,\; \forall 
+    t,j \in T, i \in I, k \in \tilde{K}_i.
+\end{equation}
+%
+Further details about the retirement cost per asset unit are given in the
+Appendix~\ref{appendix}.
+%
+\paragraph{Terminal cost.}
+%
+Because of the finite planning horizon and the allocation scheme of the model,
+new allocations toward the end of the horizon might be positively biased. These
+primarily do not consider the costs generated by the assets found past the end
+of the horizon. 
+%
+One way to deter this bias is by imposing a penalty on late allocations, i.e.\ a
+terminal cost. This term can be conceptualized as an approximation of the costs
+generated by the asset in an infinite horizon setting. Though a precise
+approximation of these values might be possible, in the current framework using
+a penalty proportional to the retirement cost at the latest period can be
+assumed as an upper-bound. This are given as follows,
+%is by relating it the costs associated
+%with the assets at the end of the finite horizon plan in the infinite horizon
+%setting. I.e., the look ahead costs that are not accounted in the current
+%t horizon. 
+%
+\begin{equation}
+    \mathtt{wTermC}_{i,j} = \mathtt{kTermC} \cdot
+    \mathtt{fRetCost}_{i,k}\! \left(|T|,j\right)\, 
+    w^{|T|+1}_{i,j}
+    ,\; \forall i \in I, j \in N_i,
+\end{equation}
+%
+\begin{equation}
+    \mathtt{zTermC}_{i,k,j} = \mathtt{kTermC} \cdot
+    \mathtt{fRetCost}_{i,k}\! \left(|T|,j\right)\, 
+    z^{|T|+1}_{i,k,j},\; \forall
+    j \in T, i \in I, k \in K_i,
+\end{equation}
+%
+and,
+%
+\begin{equation}
+    \mathtt{xTermC}_{i,k,j} = \mathtt{kTermC} \cdot
+    \mathtt{fRetCost}_{i,k}\! \left(|T|,j\right)\, 
+    x^{|T|+1}_{i,k,j},\; \forall
+    j \in T, i \in I, k \in \tilde{K}_i,
+\end{equation}
+%
+where $\mathtt{kTermC} \in \mathbb{R}_{\geq 0}$ is a scalar that must be set to
+a large value such that the terminal cost is approximated.
+%
+% we need to say something about the base load capacity
+
+\subsubsection{Superstructure: Asset associated constraints}
+%%%%%%%%%%%
+The remaining terms of interest pertain to quantities 
+that derive from assets that participate in the system. 
+For instance, the carbon dioxide generated, operation and
+maintenance cost, etc. In order to construct such superstructure of terms,
+auxiliary variables will be presented first, followed by the quantities of
+interest, and finalized by special constraints required by the system. 
+
+%\smallskip
+%\noindent
+%\textbf{Variables:} \\
+%\begin{tabular}{@{}ll@{}}
+%    \textbf{Variables:} &   \\ 
+%    $W^t_{i,j}$	&	effective capacity	\\
+%    $Z^t_{i,k,j}$	&	effective retrofit capacity	\\
+%    $X^t_{i,k,j}$	&	effective new capacity	\\
+%    $\mathtt{wProd}^t_{i,j}$	&	production of existing assets	\\
+%    $\mathtt{xProd}^t_{i,k,j}$	&	production of new assets	\\
+%    $\mathtt{wHeat}^t_{i,j}$	&	heat requirement for existing	\\
+%    $\mathtt{wCo}^t_{i,j}$	&	carbon dioxide emission for existing assets	\\
+%    $\mathtt{wFuelC}^t_{i}$	&	fuel cost for existing assets	\\
+%    $\mathtt{wFixOnM}^t_i$	&	fixed cost of O\&M for existing assets	\\
+%    $\mathtt{xCap}^t_{i,k}$	&	overnight capital cost for new assets	\\
+%    $\mathtt{zCap}^t_{i,k}$	&	overnight capital cost for retrofitted assets\\
+%    $\mathtt{wVarOnM}^t_{i}$	&	variable cost of O\&M for existing assets	\\
+%    $\mathtt{NPV}$          & net present value      \\
+%    $\mathtt{termCost}$          & overall terminal cost      \\
+%    $\mathtt{softSl}$          &   overall soft service life penalty    \\
+%\end{tabular}
+
+%\smallskip
+%\noindent
+%\textbf{Parameters:} \\
+%\begin{tabular}{@{}ll@{}}
+%    \textbf{Parameters:} &   \\ 
+%    $\mathtt{demand}^t$	&	effective capacity	\\
+%    $\mathtt{co2Budget}^t$	&	carbon dioxide budget	\\
+%    $\mathtt{cFact}_{i,j}$	&	capacity factor	\\
+%    $\mathtt{kTime}$	&   scaling factor for time		\\
+%    $\mathtt{fHeatRate}_{i,k}(t,j)$	&   (function) heat rate per production 
+%    unit \\
+%    $\mathtt{fFuelC}_{i,k}(t,j)$	&   (function) fuel cost per heat unit	\\
+%    $\mathtt{fFixCost}_{i,k}(t,j)$	&   (function) O\&M fixed cost	\\
+%    $\mathtt{fVarCost}_{i,k}(t,j)$	&   (function) O\&M variable cost	\\
+%\end{tabular}
+
+\smallskip
+% Most of the remaining quantities of interest can be found using the balance of
+% assets and a set of coefficients, e.g.\ coefficients for the fuel, emissions,
+% costs, etc. In the framework, the coefficients are handled by functions of time
+% and initial age. 
+%
+\paragraph{Effective capacity.}
+Because decisions are made at the beginning of each period, only the remainder
+of capacity can be used for production, this is there is an `effective'
+capacity. These are encapsulated into variables and are
+useful to define other relevant terms from the model. 
+Let $W^t_{i,j}$, $Z^t_{i,k,j}$, and $X^t_{i,k,j}$ be the effective capacity for
+existing, retrofitted, and new assets respectively, these are equated to the
+right-hand-sides of Equations~\eqref{eq:wbal} through~\eqref{eq:xbal}, thus
+defining the following constraints, 
+%h why are these required
+\begin{equation}
+  W^t_{i,j} = w^{t}_{i,j} - u^{t}_{i,j} - \sum_{k \in K_i} y^{t}_{i, k,j}, 
+  \; \forall t \in T, i \in I, j \in N_i,
+\label{eq:weff}
+\end{equation}
+%
+\begin{equation}
+    Z^t_{i,k,j} = z^{t}_{i,k,j} - \overline{u}^t_{i,k,j} + 
+    y^{t-\overline{\Delta}_{i,k}}_{i,k,j},\;
+    \forall 
+    t \in T, i \in I, k \in K_i, j \in N_i,
+\end{equation}
+%
+and,
+%
+\begin{equation}
+    X^t_{i,k,j} = x^{t}_{i,k,j} - v^t_{i,k,j} 
+    ,\; \forall 
+    t,j \in T, i \in I, k \in \tilde{K}_i.
+\end{equation}
+%
+\paragraph{Production.}
+%
+This set of auxiliary variables
+combines the effects of capacity and capacity factors resulting from the asset
+mix. These represent the amounts of commodities generated in the context, e.g.\
+MWh of electric power, tons of ammonia, etc. These are given by the following
+constraints,
+%
+%The effective capacity can then be used to compute the critical quantities of
+%the system. Notably the production quantities, e.g.\ in electrical sector, the
+%power generation.  These quantities are contingent upon capacity factors and the
+%length of the period, and they are presented in equation form, i.e., 
+% 
+%\begin{equation}
+%    \mathtt{wGen}^t_{i,j} = \mathtt{kYrHr} \cdot \mathtt{cFact}_{i,0}\, 
+%    W^t_{i,j},
+%    \; \forall t \in T, i \in I, j \in N_i,
+%\end{equation}
+%
+\begin{equation}
+    \mathtt{wProd}^t_{i,j} = 
+    \mathtt{kTime} \cdot 
+    \mathtt{cFact}_{i,0} \cdot
+    \mathtt{fCap}_{i,0}\left(t,j\right) \,
+    W^t_{i,j},
+    \; \forall t \in T, i \in I, j \in N_i,
+\end{equation}
+\begin{equation}
+    \mathtt{zProd}^t_{i,j} = 
+    \mathtt{kTime} \cdot 
+    \mathtt{cFact}_{i,k} \cdot
+    \mathtt{fCap}_{i,k}\left(t,j\right) \,
+    Z^t_{i,j},
+    \; \forall t \in T, i \in I, k\in K_i, j \in N_i,
+    \label{eq:zprod}
+\end{equation}
+and
+%
+\begin{equation}
+    \mathtt{xProd}^t_{i,k,j} = 
+    \mathtt{kTime} \cdot 
+    \mathtt{cFact}_{i,j}\, 
+    \mathtt{fCap}_{i,k}\left(t,j\right) \,
+    X^t_{i,j}
+    ,\; \forall 
+    t,j \in T, i \in I, k \in \tilde{K}_i,
+\end{equation}
+%
+where $\mathtt{cFact}_{i,j}$ is the average capacity factor for technology $i$
+and year $j$, $\mathtt{fCap}_{i,k}\left(t,k\right)$ is a function that returns
+the capacity per asset unit (if the assets are integer, otherwise 1), 
+and $\mathtt{kTime}$ is a time unit scale factor. 
+
+%
+\paragraph{Heat requirement.}
+Heat is a critical quantity from which the fuel and emissions can be estimated.
+These are related to the production quantities and coefficients that depend on
+the age of the asset. 
+The heat terms exists for existing, retrofitted, and new assets, however for
+brevity, only the equation for existing asset heat is presented as follows, 
+%
+\begin{equation}
+    \mathtt{wHeat}^t_{i,j} = \mathtt{fHeatRate}_{i,0}\! \left(t,j\right)\,
+    \mathtt{wProd}^t_{i,j},
+    \; \forall t \in T, i \in I_F, j \in N_i,
+    \label{eq:fhr}
+\end{equation}
+%
+where $\mathtt{fHeatRate}_{i,0}\! \left(t,j\right)$ is a function that returns
+the heat required per unit produced. The same methodology extends to
+$\mathtt{zHeat}^t_{i,j,k}$, and $\mathtt{xHeat}^t_{i,j,k}$. 
+
+%
+\paragraph{Carbon dioxide.}
+The heat requirement is thus used to compute the carbon dioxide generation
+alongside the carbon intensity factor $\mathtt{kCarbInt}_{i,k}$, as shown next,
+\footnote{Equations for retrofitted and new assets are not written here for
+brevity, nevertheless terms $\mathtt{zCo}^t_{i,j,k}$, $\mathtt{zCo}^t_{i,j,k}$, 
+$\mathtt{zFueC}^t_{i,k}$, $\mathtt{zFuel}^t_{i,k}$, and the respective O\&M
+variables do exists and the equation follow patterns similar as the ones for the
+\texttt{w}-variables.} 
+%
+\begin{equation}
+    \mathtt{wCo}^t_{i,j} = \mathtt{kCarbInt}_{i,0}\
+    \mathtt{wHeat}^t_{i,j},
+    \; \forall t \in T, i \in I_C, j \in N_i.
+\end{equation}
+%
+\paragraph{Fuel cost.}
+Fuel-based technologies have an associated cost of the fuel used for heating,
+this is given here in terms of the heat required and a function
+$\mathtt{fFuelC}_{i,0}\! \left(t,j\right)$, which returns the cost per heat unit
+as function of time and initial age. Then the fuel cost equation is written as
+follows,
+%
+\begin{equation}
+    \mathtt{wFuelC}^t_{i} = \sum_{j\in N_i}
+    \mathtt{fFuelC}_{i,0}\! \left(t,j\right)\,
+    \mathtt{wHeat}^t_{i,j},
+    \; \forall t \in T, i \in I_F. 
+    %j \in N_i,
+\end{equation}
+%
+\paragraph{O\&M cost.}
+%fixed O\&M cost for technology $i$
+%
+Typically, O\&M cost has two components, i.e.\ fixed and variable. Similarly to
+previous terms, these have a coefficient component which is returned from an
+auxiliary function. Fixed cost is given as follows, 
+\begin{equation}
+    \mathtt{wFixOnM}^t_i = \sum_{j\in N_i} 
+    \mathtt{fFixCost}_{i,0}\! \left(t,j\right)\,
+    W^t_{i,j}.
+    \; \forall t \in T, i \in I, 
+\end{equation}
+It is noted that the costs functions have a built-in adjustment component for
+the cash flows as function of time (see Appendix).
+%
+%and variable O\&M cost for technology $i$,
+The variable cost has a capacity factor component implicit in the production
+variable, e.g.\ $\mathtt{wProd}^t_{i,j}$, and it is given as follows,
+%
+\begin{equation}
+    \mathtt{wVarOnM}^t_{i} = \sum_{j\in N_i}
+    \mathtt{fVarCost}_{i,0}\! \left(t,j\right)\,
+    \mathtt{wProd}^t_{i,j},
+    \; \forall t \in T, i \in I.
+\end{equation}
+%
+\paragraph{Capital cost.}
+%
+The last of the cost components is the overnight capital cost associated with
+retrofitted and new assets. 
+For retrofits, these cost are defined in terms of the transition
+from existing to retrofitted, $y^t_{i,k,j}$ as follows,
+%
+\begin{equation}
+    \mathtt{zCap}^t_{i,k} = 
+    \mathtt{fCapCost}_{i,k}\! \left(t\right)\,
+    \sum_{j\in N_i}
+    y^t_{i,k,j}
+    \; \forall t \in T, i \in I, k \in  K_i.
+\end{equation}
+%
+On the other hand, the capital cost of new allocations depends on the allocation
+variable $\tilde{x}^t_{i,k}$, 
+%
+\begin{equation}
+    \mathtt{xCap}^t_{i,k} = 
+    \mathtt{fCapCost}_{i,k}\! \left(t\right)\,
+    \tilde{x}^t_{i,k}
+    \; \forall t \in T, i \in I, k \in \tilde{K}_i.
+\end{equation}
+%Most of these follow a pattern of explicit variable to right-hand-side 
+%equation, i.e.
+%`\texttt{variable0} \emph{equals} \texttt{constant} 
+%\emph{times} \texttt{variable1}', where the \texttt{constant} term may be a
+%function of $\left(t,j\right)$. Any additional constraint of the case study can
+%be represented in terms of these quantities. For instance, the aggregate
+%production
+%quantities should cover the demand, i.e.,
+%
+\paragraph{Demand.}
+The allocation of assets is driven by the production of commodities, e.g.\
+electric power, such that demand over time is met. For this the production by
+all assets in the model are aggregated such that they overtake the demand,
+i.e.\
+\begin{equation}
+    \sum_{i\in I} \sum_{j\in N_i} \mathtt{wProd}^t_{i,j} 
+    + \sum_{i \in I} \sum_{k \in K_i} \sum_{j\in N_j} \mathtt{zProd}^t_{i,k} 
+    + \sum_{i \in I} \sum_{k \in \tilde{K}_i} \sum_{j\in T} 
+    \mathtt{xProd}^t_{i,k} 
+    \geq \mathtt{demand}^t,
+    \; \forall t \in T,,
+\end{equation}
+%
+where $\mathtt{demand}^t$ represents the demand at time $t$. 
+%
+\paragraph{Carbon budget constraint.}
+Another driving aspect of the system is the limits on the emissions of carbon
+dioxide of the system. The form of this constraint depends on the context; here
+a upper limit on the aggregate carbon emission for the horizon is set, i.e.\
+\begin{equation}
+    \sum_{t\in T} \sum_{i\in I_C} \sum_{j\in N_i} \mathtt{wCo}^t_{i,j} 
+    + \sum_{t\in T} \sum_{i \in I_C} \sum_{k \in K_i} \sum_{j\in N_j}
+    \mathtt{zCo}^t_{i,k} 
+    + \sum_{t\in T} \sum_{i \in I_C} \sum_{k \in \tilde{K}_i} \sum_{j\in T} 
+    \mathtt{xCo}^t_{i,k} 
+    \leq \mathtt{co2Budget}.
+   % \; \forall t \in T.
+    \label{eq:co2budgeteq}
+\end{equation}
+
+\paragraph{Net present value}
+The net present value one of the elements of the  objective function of the
+problem. It contains discounted costs over time as given by the coefficient
+functions previously describe. The main components are overnight capital, O\&M,
+fuel and retirement cost for all assets. It is given as follows,
+\begin{equation}
+    \begin{split}
+        \mathtt{NPV} &= \\
+        % 0
+        & \sum_{t\in T} \sum_{i\in I} 
+        \mathtt{wVarOnM}^t_{i}
+        +\mathtt{wFixOnM}^t_{i} \\
+        % 1
+        &+ \sum_{t\in T} \sum_{i\in I} \sum_{k\in K_i} 
+        \mathtt{zCap}^t_{i,k}
+        + \mathtt{zFixOnM}^t_{i,k} 
+        + \mathtt{zVarOnM}^t_{i,k} \\
+        % 2
+        &+ \sum_{t\in T} \sum_{i\in I} \sum_{k\in \tilde{K}_i} 
+        \mathtt{xCap}^t_{i,k} 
+        + \mathtt{xFixOnM}^t_{i,k} 
+        + \mathtt{xVarOnM}^t_{i,k} \\
+        % 3
+        &+ \sum_{t\in T} \sum_{i\in I_F} 
+        \mathtt{wFuelC}^t_{i} 
+        + \sum_{k\in K_i} \mathtt{zFuelC}^t_{i,k} 
+        + \sum_{k\in \tilde{K}_i} \mathtt{xFuelC}^t_{i,k}   \\
+        % 4
+        &+ \sum_{t\in T} \sum_{i\in I} 
+        \sum_{j\in N_i} \mathtt{wRetC}^t_{i,j} 
+        + \sum_{k\in K_i} \sum_{j\in N_i} \mathtt{zRetC}^t_{i,k} 
+        + \sum_{k\in \tilde{K}_i} \sum_{j\in T} \mathtt{xRetC}^t_{i,k}.   \\
+    \end{split}
+\end{equation}
+
+\paragraph{Overall terminal cost}
+The second element of the objective is the terminal cost. This encapsulates the
+contributions of all the assets, 
+\begin{equation}
+    \mathtt{termCost} = 
+    \sum_{i\in I} \sum_{j\in N_i} \mathtt{wTermC}_{i,j}
+    + \sum_{i\in I} \sum_{k\in K_i} \sum_{j\in N_i} \mathtt{zTermC}_{i,k,j}
+    + \sum_{i\in I} \sum_{k\in \tilde{K}_i} \sum_{j\in T} 
+    \mathtt{zTermC}_{i,k,j}.
+\end{equation}
+
+\paragraph{Soft service life penalty}
+Lastly, the soft retirement cost penalty, which for the objective presented
+subsequently, is given in costs units,
+\begin{equation}
+    \mathtt{softSl} = \mathtt{wSoftSl} + \mathtt{zSoftSl} + \mathtt{xSoftSl}.
+\end{equation}
+
+\subsubsection{Objective function}
+The objective function of the problem is the minimization of the net present
+value, with the terminal and soft service life terms. 
+Let $\mathbf{x}$ represent a column vector that concatenates all the variables
+of the problem, and $\mathcal{X}$ represent the feasible set as given by all the
+constraints described thus far. Then the objective function $O(\mathbf{x})$ is
+to be minimized as follows, 
+%
+\begin{equation}
+    \begin{split}
+        \min\; O\left(\mathbf{x}\right):= \alpha \, \mathtt{NPV} 
+        + \beta \, \mathtt{termCost} 
+        + \gamma \, \mathtt{softSl}, \; \text{s.t.} \; \mathbf{x} \in
+        \mathcal{X}.
+    \end{split}
+\end{equation}
+%
+The terms in the objective have scalars $\alpha, \beta, \gamma \in \mathbb{R}_+$
+whose value are arbitrarily set. 
+%
+\subsection{Implementation}
+%%%%%%%%
+% the model has been written in julia
+% a flexible representation of a sector?
+% data requirements?
+% objective function value
+%%%%%%%%%
+The collection of terms and ideas was translated into a codebase that provides
+the grounds for deployment in the \texttt{Julia} 
+\cite{bezanson2012julia} programming
+language. This language was selected because of performance, multiplatform
+availability, and the extensive supporting libraries, most notably the modelling
+language for mathematical programming, \texttt{JuMP} \cite{dunning2017jump}.
+\texttt{JuMP} provides the basis for the translation of the model into code, and
+it also interfaces with several open-source optimization solvers. Therefore,
+\texttt{Julia} provides the full scope of possible operations from data
+input-output to processing and solution. 
+%
+% sectors are not one-dimensional, they have multi-layered, thus we require a
+% methodology to capture this
+Data is provided to the framework through spreadsheets, which are translated to
+arrays, e.g.\ the initial capacity $\mathtt{initCap}_{i,j}$ for technologies
+$i\in I$ and initial age $j\in N_i$. Modelling requirements not covered in this
+report can be added at either pre- or post-generation model stages, provided
+they do not contradict the core assumptions.
+%
+%
+%
+\begin{appendices}
+\section{Auxiliary functions and notes}\label{appendix}
+    %\todo[inline]{Write short notes on these functions.}
+    \paragraph{Discount rate function.}
+%------------------------------------------------------------------------------
+This function utilizes a discount rate parameter $\mathtt{discRate}_i$, which
+needs not be the same for all species.
+\begin{equation}
+    \mathtt{fDscnt}_i
+    \left(t\right)
+    := {\left(1+\mathtt{discRate}_i\right)}^{-t}.
+\end{equation}
+%
+    \paragraph{Retirement cost function}
+
+%
+%------------------------------------------------------------------------------
+The retirement cost is an important quantity associated with the retirement
+decision variables. This has two components, the outstanding loan amount, and
+the lost of revenue. The cost is also adjusted by time and is given by the 
+following function of time and proxy of age,
+%
+\begin{equation}
+    \mathtt{fRetCost}_{i,k}\!\left(t,j\right):= 
+    \mathtt{fDscnt}_i\!\left(t\right) \cdot
+    \left(
+    \mathtt{fOutLoan}_{i,k}\!\left(t,j\right) +
+    \mathtt{fLostSale}_i\!\left(t,j\right)
+    \right),
+\end{equation}
+%
+Both components are also given as functions of time and proxy of age, and they
+are defined as piecewise continuous functions. For the outstanding loan, the
+loan period parameter, $\mathtt{loanP}_i$, is used to create the following
+function,
+%
+\begin{equation}
+    \mathtt{fOutLoan}_{i,k}\!\left(t,j\right) :=
+    \left\{
+        \begin{matrix}
+            \frac{\left(\mathtt{loanP}_i - \mathtt{age}_{t,j}\right)}
+            {\mathtt{loanP}_i} 
+            %\mathtt{fDisc}\left(t\right) 
+            \mathtt{kCc}_{i,k} \mathtt{fCapCost}_{i,j}(t), & 
+            \text{if}\; \mathtt{loanP}_i-\mathtt{age}_{t,j}\geq 0 ,\\
+            0, & \text{otherwise}.
+        \end{matrix}
+    \right.
+\end{equation}
+%
+Similarly the lost of revenue requires the plant service life, 
+$\mathtt{sLife}_i$, and the price of electricity, $\mathtt{elecSale}$. These
+are used in the following function,
+%
+\begin{equation}
+    \mathtt{fLostSale}_i\!\left(t,j\right) :=
+    \left\{
+        \begin{matrix}
+            \left(\mathtt{sLife}_i - \mathtt{age}_{t,j}\right) 
+            \mathtt{elecSale}_t, & 
+            \text{if}\; \mathtt{sLife}_i-\mathtt{age}_{t,j} \geq 0 ,\\
+            0, & \text{otherwise}.
+        \end{matrix}
+    \right.
+\end{equation}
+%------------------------------------------------------------------------------
+%
+    \paragraph{Heat rate and fuel cost}
+%
+The heat rate is assumed to increase with time given by $\mathtt{hRinc}$, and 
+both functions are given in terms of time and proxy of age as follows,
+\begin{equation}
+    \mathtt{fHeatRate}_{i,k}\!\left(t,j\right) := 
+    \mathtt{kHr}_{i,k} \cdot
+    \mathtt{heatRate}_{i,j} \cdot {\left(1+\mathtt{hRinc}\right)}^t
+    \label{eq:f_hr},
+\end{equation}
+%
+\begin{equation}
+    \mathtt{fFuelC}_{i,0}\! \left(t,j\right) :=
+    \mathtt{fDscnt}_i\! \left(t\right) \cdot 
+    \mathtt{kFu}_{i,k} \cdot
+    \mathtt{fuelC}_{i,t}. 
+\end{equation}
+%
+    \paragraph{Soft service life penalty parameter function.}
+%
+%
+The soft service life penalty parameter function is primarily required to
+increase monotonically. Moreover, the rate at which the returned value increases
+can be set accordingly to the attitude towards the late assets. The following
+function was identified to capture the requirements previously mentioned,
+%
+\begin{equation}
+    \mathtt{fPenalty}_i \left(\mathtt{age}\right) = 
+    \mathtt{kPen}_i \cdot \exp
+    \left(
+    \left(\mathtt{age}-\mathtt{sLife}_i\right)/\mathtt{sLife}_i
+    \right),
+\end{equation}
+%
+where $\mathtt{sLife}_i$ is the service life for technology kind $i$, and
+$\mathtt{kPen}_i$ is an arbitrary scaling value. This function will have 
+an aggressive response as the asset ages, as opposed to, for instance, a linear
+function of the relative age. $\mathtt{kPen}_i \in \mathbb{R}_{\geq 0}$ must be
+selected keeping into account the overall scaling of the problem, and the
+aggressiveness of the retirement penalty.
+%
+    \paragraph{Carbon capture retrofits heat rate and power output reduction.}
+%------------------------------------------------------------------------------
+The carbon capture retrofits of existing coal and natural gas combined cycle 
+power plants reduce the energy efficiency of base plants in a nontrivial way.
+For the purpose of this manuscript, the side effects of this kind of retrofit
+follow the findings of \cite{supekar2017sourcing} in a simplified way.
+Two effects are considered, a) the reduction of the heat rate, and b)
+the reduction of the power output. Both effects require a \%-points of 
+efficiency decrease, which can be computed using the methodology found in
+\cite{supekar2017sourcing}. Nevertheless, for a) the \%-points of efficiency 
+are directly subtracted from the the base heat rate ($\mathtt{heatRate}$) in 
+Equation~\eqref{eq:f_hr}; and for b) the \%-points are used to create
+a reduction multiplier, which is embedded in Equation~\eqref{eq:zprod}.
+%
+\end{appendices}
+%
+% we need a table for:
+% sets, variables, functions/constants
+% symbol \t description
+% 
+%
+\end{document}
+%
