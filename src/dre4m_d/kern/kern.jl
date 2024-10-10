@@ -81,6 +81,18 @@ mutable struct params
     y0::Int64
     x_ub::Float64  # 7 *allocation* upper bound
     interest::Float64 # 84
+    #
+    # cap_sf = 1e-03  # kton/ton : scale factor
+    # cash_sf = 1e-06  # MUSD/USD
+    # heat_sf = 1e-03  # kMMBTU/MMBTU
+    # elec_sf = 1e-03  # kMMBTU/MMBTU
+    # em_sf = 1e-03  # ktonne/tonne
+    
+    sf_cap::Float64  # cap scale factor
+    sf_cash::Float64  # cash scale factor
+    sf_heat::Float64  # heat scale factor
+    sf_elec::Float64  # elec scale factor
+    sf_em::Float64  # emission scale factor
 
 
     c0::Vector{Float64} # 15 initial capacity [l]
@@ -299,7 +311,12 @@ function write_params(p::params, xlsxfname::String)
                        "yr_subperiod",
                        "y0", 
                        "x_ub",
-                       "interest"
+                       "interest",
+                       "sf_cap",
+                       "sf_cash",
+                       "sf_heat",
+                       "sf_elec",
+                       "sf_em",
                       ],
                       "value"=>
                       [p.n_periods,
@@ -312,7 +329,12 @@ function write_params(p::params, xlsxfname::String)
                        p.yr_subperiod,
                        p.y0,
                        p.x_ub,
-                       p.interest])
+                       p.interest,
+                       p.sf_cap,
+                       p.sf_cash,
+                       p.sf_heat,
+                       p.sf_elec,
+                       p.sf_em,])
         sheet = xf[1]
         XLSX.writetable!(sheet, d)
         # c0::Vector{Float64}
@@ -892,6 +914,11 @@ function read_params(fname)
     y0 = trunc(Int64, y0)
     x_ub = sh[11, 2]
     interest = sh[12, 2]
+    sf_cap = sh[13, 2]
+    sf_cash = sh[14, 2]
+    sf_heat = sh[15, 2]
+    sf_elec = sh[16, 2]
+    sf_em = sh[17, 2]
 
     # c0::Vector{Float64}
     sh = xf["c0"]
@@ -1621,6 +1648,7 @@ function read_params(fname)
               yr_subperiod,
               y0,
               x_ub, interest,
+              sf_cap, sf_cash, sf_heat, sf_elec, sf_em,
               c0,
               e_C,
               e_c_ub, e_loanFact, e_l_ub, e_Ann, e_ann_ub, e_ladd_ub,
@@ -1699,6 +1727,18 @@ function append_fuelnames(n::Vector{String}, xlsxfname::String)
     XLSX.openxlsx(xlsxfname, mode="rw") do xf
         sheet = XLSX.addsheet!(xf, "fuel_names")
         d = DataFrame("fuel_names"=>n)
+        XLSX.writetable!(sheet, d)
+    end
+end
+
+function append_units_names(
+        names::Vector{String}, 
+        units::Vector{String},
+        xlsxfname::String
+    )
+    XLSX.openxlsx(xlsxfname, mode="rw") do xf
+        sheet = XLSX.addsheet!(xf, "units")
+        d = DataFrame("name"=>names, "unit"=>units)
         XLSX.writetable!(sheet, d)
     end
 end
