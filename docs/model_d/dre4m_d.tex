@@ -14,8 +14,7 @@
 
 %
 \DeclareFontFamily{U}{matha}{\hyphenchar\font45}
-\DeclareFontShape{U}{matha}{m}{n}{ <-6> matha5 <6-7> matha6 <7-8>
-matha7 <8-9> matha8 <9-10> matha9 <10-12> matha10 <12-> matha12 }{}
+\DeclareFontShape{U}{matha}{m}{n}{ <-6> matha5 <6-7> matha6 <7-8> matha7 <8-9> matha8 <9-10> matha9 <10-12> matha10 <12-> matha12 }{}
 \DeclareSymbolFont{matha}{U}{matha}{m}{n}
 \DeclareMathSymbol{\myvee}{\mathbin}{matha}{"5F}
 \newcommand{\myveebar}{\mathbin{\vcenter{\hbox{$ \underline{\mkern-2.4mu{\myvee}\mkern-2.4mu} $}}}}
@@ -329,7 +328,7 @@ Then, the associated linear system becomes active \emph{only} if its
 corresponding Boolean variable is True, otherwise it not considered.
 %
 In order to use off-the-shelf optimization solvers the system must be
-reformulated first. In general, Eq.\eqref{eq:dpcon} can always be written as a
+reformulated first. In general, Eq.~\eqref{eq:dpcon} can always be written as a
 Mixed-Integer Linear Program (MILP), where the discrete decision are encoded
 with 1--0 variables as opposed to Boolean variables.  For instance, one
 reformulation of system~\eqref{eq:dpcon} results in the following set of
@@ -565,7 +564,7 @@ These statements are created using propositional logic with connectives like
 implication, equivalence, negation, etc. Ultimately these get transformed
 systematically to achieve the \emph{Conjunctive Normal Form} or CNF, which can
 be systematically translated into an linear system with binary variables
-matching Eq.\eqref{eq:linear_logic}.
+matching Eq.~\eqref{eq:linear_logic}.
 %
 Thus, the most salient logic relationships are stated in this section. 
 %
@@ -801,7 +800,7 @@ each plant, thus achieving the loan increase.
 Therefore these last sets of constraints enable the activation and deactivation
 of payment costs as well as providing the \emph{remaining} loan balance, which
 in the case of existing plants, can be used for the calculation of the
-retirement cost according to Eq.\eqref{eq:retcost}.
+retirement cost according to Eq.~\eqref{eq:retcost}.
 %
 \section{Additional costs}
 %

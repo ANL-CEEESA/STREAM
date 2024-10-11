@@ -2075,46 +2075,46 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
     n_ep1gcs_cost = m[:n_ep1gcs_cost]
     @objective(m, Min,
                # 1 loan
-               1e-06*(sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
-                                  for l in L) for j in P2) for i in P)
-                      # 2 o&m
-                      + sum(sum(sum(p.discount[i, j] * o_conm[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 3 loan new
-                      + sum(sum(sum(p.discount[i, j] * n_pay[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 4 o&m new
-                      + sum(sum(sum(p.discount[i, j] * n_conm[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 5 retirement
-                      + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 6 last loan
-                      + sum(p.discount[n_periods,n_subperiods]*
-                            o_loan_last[n_periods, l, sT] 
-                            for l in L)
-                      # 7 last loan new
-                      + sum(p.discount[n_periods,n_subperiods]*
-                            n_loan_p[n_periods,n_subperiods,l] 
-                            for l in L)
-                      # 8 elec
-                      + sum(p.discount[i, j] * o_u_cost[i, j, l] 
-                            for l in L for j in P2 for i in P)
-                      # 9 elec new
-                      + sum(p.discount[i, j] * n_u_cost[i, j, l]
-                            for l in L for j in P2 for i in P)
-                      # 10 fuel
-                      + sum(p.discount[i, j] * o_ehf_cost[i, j, l]
-                            for l in L for j in P2 for i in P)
-                      # 11 fuel new
-                      + sum(p.discount[i, j] * n_ehf_cost[i, j, l]
-                            for l in L for j in P2 for i in P)
-                      #
-                      + sum(p.discount[i, j] * o_ep1gcs_cost[i, j, l] 
-                            for l in L for j in P2 for i in P)
-                      + sum(p.discount[i, j] * n_ep1gcs_cost[i, j, l] 
-                            for l in L for j in P2 for i in P)
-                     )
+               (sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
+                            for l in L) for j in P2) for i in P)
+                # 2 o&m
+                + sum(sum(sum(p.discount[i, j] * o_conm[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 3 loan new
+                + sum(sum(sum(p.discount[i, j] * n_pay[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 4 o&m new
+                + sum(sum(sum(p.discount[i, j] * n_conm[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 5 retirement
+                + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 6 last loan
+                + sum(p.discount[n_periods,n_subperiods]*
+                      o_loan_last[n_periods, l, sT] 
+                      for l in L)
+                # 7 last loan new
+                + sum(p.discount[n_periods,n_subperiods]*
+                      n_loan_p[n_periods,n_subperiods,l] 
+                      for l in L)
+                # 8 elec
+                + sum(p.discount[i, j] * o_u_cost[i, j, l] 
+                      for l in L for j in P2 for i in P)
+                # 9 elec new
+                + sum(p.discount[i, j] * n_u_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                # 10 fuel
+                + sum(p.discount[i, j] * o_ehf_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                # 11 fuel new
+                + sum(p.discount[i, j] * n_ehf_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                #
+                + sum(p.discount[i, j] * o_ep1gcs_cost[i, j, l] 
+                      for l in L for j in P2 for i in P)
+                + sum(p.discount[i, j] * n_ep1gcs_cost[i, j, l] 
+                      for l in L for j in P2 for i in P)
+               )
                # if you retire but still have unpayed loan it is gonna be
                # reflected here :()
               )
