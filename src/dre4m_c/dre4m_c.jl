@@ -41,9 +41,9 @@
 #
 #80#############################################################################
 module dre4m_c
-
+import ..dre4m.prJrnl
 include("./matrix/mat_struct.jl")
-include("./kern/props.jl")
+# include("./kern/props.jl")
 include("./kern/modKern.jl")
 include("./coef/coef_custom.jl")
 include("./mods/model.jl")

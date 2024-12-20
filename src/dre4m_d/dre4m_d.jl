@@ -40,10 +40,10 @@
 #
 #80#############################################################################
 module dre4m_d
-export params, write_params, read_params, sets, createBlockMod, attachPeriodBlock, attachLocationBlock, attachFullObjectiveBlock, load_discrete_state, save_discrete_state, postprocess_d, append_fuelnames, append_units_names
+export params, write_params, read_params, sets, createBlockMod, attachPeriodBlock, attachLocationBlock, attachFullObjectiveBlock, load_discrete_state, save_discrete_state, postprocess_d, append_fuelnames!, append_units_names!, append_tech_names!
 
 include("./kern/kern.jl")
-include("./mod/bm.jl")
+include("./mod/bm_mb_1216.jl")
 include("./post/postprocess.jl")
 
 version = VersionNumber(1, 0, 0)
