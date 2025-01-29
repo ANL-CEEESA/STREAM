@@ -50,11 +50,12 @@ __author__ = "David Thierry @dthierry"
 
 # 80############################################################################
 def pltrcparams():
-    plt.rcParams.update({'font.size': 26})
+    #plt.rcParams.update({'font.size': 26})
+    plt.rcParams.update({'font.size': 16})
     rfigsize = plt.rcParams['figure.figsize']
     ratio = rfigsize[1]/rfigsize[0]
-    sarang_size = 6.9444444444
-    plt.rcParams['figure.figsize'] = [sarang_size, sarang_size*ratio]
+    #sarang_size = 6.9444444444
+    #plt.rcParams['figure.figsize'] = [sarang_size, sarang_size*ratio]
     plt.rcParams['font.sans-serif'] = "Helvetica"
     plt.rcParams['figure.autolayout'] = True
 
@@ -109,15 +110,15 @@ def main():
 
     plot_legend(rf, folder, colors, labr, labn)
 
-    plot_capacities(rf, folder, colors, labr, labn)
-    plot_cumulative_expansion(rf, folder, colors)
-    plot_ep1(rf, folder, colors, labr, labn)
-    #plot_elec_by_tech(rf, folder, colors, labr, labn)
-    plot_emisions(rf, folder)
-    #plot_bar_by_loc(rf, folder, colors, labr, labn)
+    plot_capacities(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_cumulative_expansion(rf, folder, colors, xaxislabel="year")
+    plot_ep1(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_emisions(rf, folder, xaxislabel="year")
+    plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel="year")
     # plot_pie_by_loc(rf, folder, colors, labr, labn)
-    plot_em_bar_v2(rf, folder, colors, labr, labn)
-    plot_co2_cap_bar(rf, folder, colors, labr, labn)
+    plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel="year")
 
 # 80############################################################################
 def plot_emisions(rf, folder, xaxislabel=None):
@@ -163,14 +164,14 @@ def plot_emisions(rf, folder, xaxislabel=None):
 
     ymax = b.max().max()
     a.set_title("CO2 Emissions")
-    a.set_xlabel("Period")
+    a.set_xlabel("Year")
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "co2b.png", dpi=300)
+    f.savefig(folder + "co2b.png", dpi=300, format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -222,8 +223,8 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     a.plot(xvals, dfd.iloc[:, 0],
            label="Demand", lw=2, color="blue", ls="--", marker="*")
 
-    a.set_title("(a) Production/Demand")
-    a.set_xlabel("Period")
+    a.set_title("(a) (STREAM) Cement Production/Demand")
+    a.set_xlabel("Year")
     a.set_ylabel("tonne/yr")
     a.set_ylim(top=ymax*1.01)
 
@@ -231,7 +232,7 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "demand-.png", dpi=300)
+    f.savefig(folder + "demand-.png", dpi=300, format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -267,13 +268,13 @@ def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
 
 
     a.set_title("Electricity")
-    a.set_xlabel("Period")
+    a.set_xlabel("Year")
     a.set_ylabel("MMBTU/yr")
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "u.png", dpi=300)
+    f.savefig(folder + "u.png", dpi=300, format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -353,14 +354,14 @@ def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = base.max().max()
     a.set_title("Capital")
-    a.set_xlabel("Period")
+    a.set_xlabel("Year")
     a.set_ylabel("USD/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(x)
 
-    f.savefig(folder + "loans.png", dpi=300)
+    f.savefig(folder + "loans.png", dpi=300, format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -406,15 +407,15 @@ def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max()
 
-    a.set_title("Scope 1 Emission (emitted)")
-    a.set_xlabel("Period")
+    a.set_title("(b) (STREAM) Scope 1 Cement Emission (em.)")
+    a.set_xlabel("Year")
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "ep1ge.png", dpi=300)
+    f.savefig(folder + "ep1ge.png", dpi=300, format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -461,8 +462,8 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max()
 
-    a.set_title("(c) Electricity consumption")
-    a.set_xlabel("Period")
+    a.set_title("(c) (STREAM) Cement Electricity consumption")
+    a.set_xlabel("Year")
     a.set_ylabel("MMBTU/yr")
     a.set_ylim(top=ymax*1.01)
 
@@ -470,7 +471,7 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "u_by_rf.png", dpi=300)
+    f.savefig(folder + "u_by_rf.png", dpi=300, format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -505,14 +506,14 @@ def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
         b += de.iloc[:, col]
 
     a.set_title("Active expansion capacity")
-    a.set_xlabel("Period")
+    a.set_xlabel("Year")
     a.set_ylabel("tonne/yr")
 
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "ec.png")
+    f.savefig(folder + "ec.png", format="png")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
@@ -530,7 +531,7 @@ def export_legend(legend, filename="legend.png"):
     bbox  = legend.get_window_extent().transformed(
         fig.dpi_scale_trans.inverted()
     )
-    fig.savefig(filename, dpi=300, bbox_inches=bbox)
+    fig.savefig(filename, dpi=300, bbox_inches=bbox, format="png")
 
 
 # 80############################################################################
@@ -585,8 +586,8 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     a.plot(xvals, dfd.iloc[:, 0],
            label="Demand", lw=2, color="darkred", ls="--", marker="*")
 
-    a.set_title("(a) Production/Demand")
-    a.set_xlabel("Period")
+    a.set_title("(a) (STREAM) Cement Production/Demand")
+    a.set_xlabel("Year")
     a.set_ylabel("tonne/yr")
     a.set_ylim(top=ymax*1.01)
 
@@ -594,7 +595,10 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "demand-loc.png", dpi=300)
+    f.savefig(folder + "demand-loc.png", dpi=300, format="png")
+    a.legend(bbox_to_anchor=(1.0, 1.0))
+    legend_object = a.get_legend()
+    export_legend(legend_object, filename=folder + "legend_demand-loc.png")
 
 
 # 80############################################################################
@@ -667,7 +671,7 @@ def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
                 ax.pie(l, colors=colors)
 
             #ax.set_title(f"loc={row}, period={col}", fontsize="small")
-    f.savefig(folder + "pie_chart.png", dpi=300)
+    f.savefig(folder + "pie_chart.png", dpi=300, format="png")
 
 
 # 80############################################################################
@@ -844,14 +848,14 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max().max()
     a.set_title("Pre/Post capture CO2 Emissions")
-    a.set_xlabel("Period")
+    a.set_xlabel("Year")
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "co2_act.png", dpi=300)
+    f.savefig(folder + "co2_act.png", dpi=300, format="png")
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
@@ -927,14 +931,14 @@ def plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max().max()
     a.set_title("(b) Captured CO2")
-    a.set_xlabel("Period")
+    a.set_xlabel("Year")
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "co2_ccap.png", dpi=300)
+    f.savefig(folder + "co2_ccap.png", dpi=300, format="png")
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()

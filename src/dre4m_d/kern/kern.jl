@@ -80,6 +80,7 @@ mutable struct params
     sf_heat::Float64  # heat scale factor
     sf_elec::Float64  # elec scale factor
     sf_em::Float64  # emission scale factor
+    key_node::Int64 # key node
 
 
     n_rfu::Vector{Int64} # 4
@@ -87,7 +88,6 @@ mutable struct params
     c0::Vector{Float64} # 15 initial capacity [l]
     # expansion
     e_C::Vector{Float64} # 5 capacity factor for expansion [l]
-
     e_c_ub::Vector{Float64} # 6 *capacity* expansion big-M (capacity units)
 
     e_loanFact::Vector{Float64} # 8 capacity expansion cost fact (cost units)
@@ -106,8 +106,8 @@ mutable struct params
     r_c_C::Matrix{Float64} # 16 *mode* capacity factor [l, k]
     r_rhs_C::Matrix{Float64} # 17 mode capacity rhs
 
-    r_cp_ub::Vector{Float64} # 18 mode capacity big-M (capacity units)
-    r_cpb_ub::Vector{Float64}# 19 mode-base capacity big-M (capacity units)
+    r_cp_ub::Array{Float64, 2} # 18 mode capacity big-M (capacity units)
+    r_cpb_ub::Vector{Float64} # 19 mode-base capacity big-M (capacity units)
 
     r_c_H::Array{Float64, 3}  # 20 mode heat factor [l, k] (heat u/cap u)
     r_rhs_H::Array{Float64, 3}  # 21 mode heat factor rhs (heat u)
@@ -130,10 +130,10 @@ mutable struct params
 
     r_u_ub::Array{Float64, 2} # 28 mode elec big-M
 
-    r_c_cp_e::Matrix{Float64} # 29 process intrinsic emission factor [l, k] (em u/cap u)
-    r_rhs_cp_e::Matrix{Float64} # 30 process intrinsic emission rhs
+    r_c_cpe::Array{Float64, 3} # 29 process intrinsic emission factor [l, k] (em u/cap u)
+    r_rhs_cpe::Array{Float64, 3} # 30 process intrinsic emission rhs
 
-    r_cp_e_ub::Array{Float64, 1}# 31 process intrinsic emission big-M
+    r_cpe_ub::Array{Float64, 2} # 31 process intrinsic emission big-M
 
     r_c_Fe::Array{Float64, 4}  # 32 fuel emission factor [f, l, k] (em u/fu u)
     r_c_Fgenf::Array{Float64, 4}  # generation by fuel factor (0,1)
@@ -186,7 +186,7 @@ mutable struct params
     # new plants
      
     n_filter::Array{Bool, 2}
-    n_cp_bM::Vector{Float64} # 53
+    n_cp_bM::Array{Float64, 2} # 53
     n_c0_bM::Vector{Float64} # 54
     n_c0_lo::Matrix{Float64} # 54
     n_loanFact::Matrix{Float64} # 55
@@ -217,9 +217,9 @@ mutable struct params
 
     n_u_ub::Array{Float64, 2} # 69
 
-    n_c_cp_e::Matrix{Float64} # 70
-    n_rhs_cp_e::Matrix{Float64} # 71
-    n_cp_e_ub::Array{Float64, 1} # 72
+    n_c_cpe::Array{Float64, 3} # 70
+    n_rhs_cpe::Array{Float64, 3} # 71
+    n_cpe_ub::Array{Float64, 2} # 72
 
     n_c_Fe::Array{Float64, 4} # 73 [f, l, k, n]
     n_c_Fgenf::Array{Float64, 4}  # [l, k, f, n]
@@ -257,8 +257,8 @@ mutable struct params
     c_cts_cost::Vector{Float64}  # transport and storage
     c_xin_cost::Array{Float64, 2}
     ##
-    o_cp_ub::Array{Float64, 1} # 83
-    o_cp_e_bM::Float64
+    o_cp_ub::Array{Float64, 2} # 83
+    o_cpe_bM::Float64
     o_u_ub::Array{Float64, 2}
     o_ehf_ub::Array{Float64, 3}
     o_ep0_bM::Vector{Float64}
@@ -290,8 +290,12 @@ mutable struct params
     input_mat::Vector{Vector{Int64}}
     output_mat::Vector{Vector{Int64}}
     links_list::Vector{Tuple{Int64, Int64, Int64}}
-    nkey::Vector{Int64}
-    nd_e_fltr::Vector{Bool}
+    ckey::Vector{Int64}  # key component for h/u/e
+    nd_en_fltr::Vector{Bool}  # true if this node uses energy
+    nd_em_fltr::Vector{Bool}  # true if this node has non-fuel em
+    r_Kkey_j::Array{Float64, 2}
+    n_Kkey_j::Array{Float64, 2}
+    min_cpr::Vector{Float64}
 end
 
 
@@ -342,6 +346,7 @@ function write_params(p::params, xlsxfname::String)
                        "sf_heat",
                        "sf_elec",
                        "sf_em",
+                       "key_node",
                       ],
                       "value"=>
                       [p.n_periods,
@@ -361,7 +366,9 @@ function write_params(p::params, xlsxfname::String)
                        p.sf_cash,
                        p.sf_heat,
                        p.sf_elec,
-                       p.sf_em,])
+                       p.sf_em,
+                       p.key_node
+                      ])
         sheet = xf[1]
         XLSX.writetable!(sheet, d)
         # n_rfu::Vector{Int64} # 4
@@ -378,15 +385,15 @@ function write_params(p::params, xlsxfname::String)
         mnnfu = maximum(n_nfu)
         # c0::Vector{Float64}
         sheet = XLSX.addsheet!(xf, "c0")
-        d = DataFrame("c0"=>p.c0)
+        d = DataFrame(["c0" => p.c0])
         XLSX.writetable!(sheet, d)
         # e_C::Vector{Float64}
         sheet = XLSX.addsheet!(xf, "e_C")
-        d = DataFrame("e_C"=>p.e_C)
+        d = DataFrame(["e_C" => p.e_C])
         XLSX.writetable!(sheet, d)
         # e_c_ub::Vector{Float64}
         sheet = XLSX.addsheet!(xf, "e_c_ub")
-        d = DataFrame("e_c_ub"=>p.e_c_ub)
+        d = DataFrame(["e_c_ub" => p.e_c_ub])
         XLSX.writetable!(sheet, d)
         # e_loanFact::Vector{Float64}
         sheet = XLSX.addsheet!(xf, "e_loanFact")
@@ -428,13 +435,13 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "r_rhs_C")
         d = DataFrame(["$(k)"=>p.r_rhs_C[:, k] for k in 1:n_rtft])
         XLSX.writetable!(sheet, d)
-        # r_cp_ub::Vector{Float64}
+        # r_cp_ub::Array{Float64, 2}
         sheet = XLSX.addsheet!(xf, "r_cp_ub")
-        d = DataFrame("r_cp_ub"=>p.r_cp_ub)
+        d = DataFrame(["$((n,))" => p.r_cp_ub[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
         # r_cpb_ub::Vector{Float64}
         sheet = XLSX.addsheet!(xf, "r_cpb_ub")
-        d = DataFrame("r_cpb_ub"=>p.r_cpb_ub)
+        d = DataFrame(["r_cpb_ub" => p.r_cpb_ub])
         XLSX.writetable!(sheet, d)
         # r_c_H::Array{Float64, 3}
         sheet = XLSX.addsheet!(xf, "r_c_H")
@@ -513,17 +520,21 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "r_u_ub")
         d = DataFrame(["$((n,))"=>p.r_u_ub[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
-        # r_c_cp_e::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "r_c_cp_e")
-        d = DataFrame(["$(r)"=>p.r_c_cp_e[:, r] for r in 1:n_rtft])
+        # r_c_cpe::Array{Float64, 3}
+        sheet = XLSX.addsheet!(xf, "r_c_cpe")
+        d = DataFrame(["$((r, n))"=>p.r_c_cpe[:, r, n]
+                       for n in 1:n_node
+                       for r in 1:n_rtft])
         XLSX.writetable!(sheet, d)
-        # r_rhs_cp_e::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "r_rhs_cp_e")
-        d = DataFrame(["$(r)"=>p.r_rhs_cp_e[:, r] for r in 1:n_rtft])
+        # r_rhs_cpe::Array{Float64, 3}
+        sheet = XLSX.addsheet!(xf, "r_rhs_cpe")
+        d = DataFrame(["$((r, n))"=>p.r_rhs_cpe[:, r, n] 
+                       for n in 1:n_node
+                       for r in 1:n_rtft])
         XLSX.writetable!(sheet, d)
-        # r_cp_e_ub::Array{Float64, 1}
-        sheet = XLSX.addsheet!(xf, "r_cp_e_ub")
-        d = DataFrame("r_cp_e_ub"=>p.r_cp_e_ub[:, 1])
+        # r_cpe_ub::Array{Float64, 2}
+        sheet = XLSX.addsheet!(xf, "r_cpe_ub")
+        d = DataFrame(["$((n,))"=>p.r_cpe_ub[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
         # r_c_Fe::Array{Float64, 4}
         sheet = XLSX.addsheet!(xf, "r_c_Fe")
@@ -703,9 +714,9 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "n_filter")
         d = DataFrame(["$((k,))" => p.n_filter[:, k] for k in 1:n_new])
         XLSX.writetable!(sheet, d)
-        # n_cp_bM::Vector{Float64}
+        # n_cp_bM::Array{Float64, 2}
         sheet = XLSX.addsheet!(xf, "n_cp_bM")
-        d = DataFrame("n_cp_bM"=>p.n_cp_bM)
+        d = DataFrame(["$((n,))" => p.n_cp_bM[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
         # n_c0_bM::Vector{Float64}
         sheet = XLSX.addsheet!(xf, "n_c0_bM")
@@ -825,17 +836,21 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "n_u_ub")
         d = DataFrame(["$((n,))"=>p.n_u_ub[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
-        # n_c_cp_e::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "n_c_cp_e")
-        d = DataFrame(["$((n,))"=>p.n_c_cp_e[:, n] for n in 1:n_new])
+        # n_c_cpe::Array{Float64, 3}
+        sheet = XLSX.addsheet!(xf, "n_c_cpe")
+        d = DataFrame(["$((r, n))"=>p.n_c_cpe[:, r, n]
+                       for n in 1:n_node
+                       for r in 1:n_new])
         XLSX.writetable!(sheet, d)
-        # n_rhs_cp_e::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "n_rhs_cp_e")
-        d = DataFrame(["$((n,))"=>p.n_rhs_cp_e[:, n] for n in 1:n_new])
+        # n_rhs_cpe::Array{Float64, 3}
+        sheet = XLSX.addsheet!(xf, "n_rhs_cpe")
+        d = DataFrame(["$((r, n))"=>p.n_rhs_cpe[:, r, n]
+                       for n in 1:n_node
+                       for r in 1:n_new])
         XLSX.writetable!(sheet, d)
-        # n_cp_e_ub::Array{Float64, 2}
-        sheet = XLSX.addsheet!(xf, "n_cp_e_ub")
-        d = DataFrame("n_cp_e_ub"=>p.n_cp_e_ub[:, 1])
+        # n_cpe_ub::Array{Float64, 2}
+        sheet = XLSX.addsheet!(xf, "n_cpe_ub")
+        d = DataFrame(["$((n,))" => p.n_cpe_ub[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
         # n_c_Fe::Array{Float64, 4}
         sheet = XLSX.addsheet!(xf, "n_c_Fe")
@@ -978,13 +993,13 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "c_xin_cost")
         d = DataFrame(["$((c,))"=>p.c_xin_cost[:,c] for c in 1:n_mat])
         XLSX.writetable!(sheet, d)
-        # o_cp_ub::Array{Float64, 1}
+        # o_cp_ub::Array{Float64, 2}
         sheet = XLSX.addsheet!(xf, "o_cp_ub")
-        d = DataFrame("o_cp_ub" => p.o_cp_ub[:, 1])
+        d = DataFrame(["$((n,))" => p.o_cp_ub[:, n] for n in 1:n_node])
         XLSX.writetable!(sheet, d)
-        # o_cp_e_bM::Float64
-        sheet = XLSX.addsheet!(xf, "o_cp_e_bM")
-        d = DataFrame("o_cp_e_bM" => p.o_cp_e_bM)
+        # o_cpe_bM::Float64
+        sheet = XLSX.addsheet!(xf, "o_cpe_bM")
+        d = DataFrame("o_cpe_bM" => p.o_cpe_bM)
         XLSX.writetable!(sheet, d)
         # o_u_ub::Array{Float64, 2}
         sheet = XLSX.addsheet!(xf, "o_u_ub")
@@ -1115,13 +1130,29 @@ function write_params(p::params, xlsxfname::String)
                       "comp"=>[p.links_list[lnk][3] for lnk in 1:n_link],
                      )
         XLSX.writetable!(sheet, d)
-        # nkey::Vector{Int64}
-        sheet = XLSX.addsheet!(xf, "nkey")
-        d = DataFrame("nkey"=>p.nkey)
+        # ckey::Vector{Int64}
+        sheet = XLSX.addsheet!(xf, "ckey")
+        d = DataFrame("ckey"=>p.ckey)
         XLSX.writetable!(sheet, d)
-        # nd_e_fltr::Vector{Bool}
-        sheet= XLSX.addsheet!(xf, "nd_e_fltr")
-        d = DataFrame("nd_e_fltr"=>p.nd_e_fltr)
+        # nd_en_fltr::Vector{Bool}
+        sheet= XLSX.addsheet!(xf, "nd_en_fltr")
+        d = DataFrame("nd_en_fltr"=>p.nd_en_fltr)
+        XLSX.writetable!(sheet, d)
+        # nd_em_fltr::Vector{Bool}
+        sheet= XLSX.addsheet!(xf, "nd_em_fltr")
+        d = DataFrame("nd_em_fltr"=>p.nd_em_fltr)
+        XLSX.writetable!(sheet, d)
+        # r_Kkey_j::Array{Float64, 2}
+        sheet= XLSX.addsheet!(xf, "r_Kkey_j")
+        d = DataFrame(["$((k,))"=>p.r_Kkey_j[:, k] for k in 1:n_rtft])
+        XLSX.writetable!(sheet, d)
+        # n_Kkey_j::Array{Float64, 2}
+        sheet= XLSX.addsheet!(xf, "n_Kkey_j")
+        d = DataFrame(["$((k,))"=>p.n_Kkey_j[:, k] for k in 1:n_new])
+        XLSX.writetable!(sheet, d)
+        # min_cpr::Vector{Float64}
+        sheet= XLSX.addsheet!(xf, "min_cpr")
+        d = DataFrame("min_cpr"=>p.min_cpr)
         XLSX.writetable!(sheet, d)
     end
 end
@@ -1159,6 +1190,7 @@ function read_params(fname)
     sf_heat = sh[17, 2]
     sf_elec = sh[18, 2]
     sf_em = sh[19, 2]
+    key_node = sh[20, 2]
     # n_rfu::Vector{Int64}
     sh = xf["n_rfu"]
     n_rfu = sh[2:n_loc+1, 1]
@@ -1233,11 +1265,10 @@ function read_params(fname)
     sh = xf["r_rhs_C"]
     r_rhs_C = sh[2:n_loc+1, 1:n_rtft]
     r_rhs_C = convert(Matrix{Float64}, r_rhs_C)
-    # r_cp_ub::Vector{Float64}
+    # r_cp_ub::Array{Float64, 2}
     sh = xf["r_cp_ub"]
-    r_cp_ub = sh[2:n_loc+1, 1]
-    r_cp_ub = vec(r_cp_ub)
-    r_cp_ub = convert(Vector{Float64}, r_cp_ub)
+    r_cp_ub = sh[2:n_loc+1, 1:n_node]
+    r_cp_ub = convert(Array{Float64, 2}, r_cp_ub)
     # r_cpb_ub::Vector{Float64}
     sh = xf["r_cpb_ub"]
     r_cpb_ub = sh[2:n_loc+1, 1]
@@ -1359,19 +1390,30 @@ function read_params(fname)
     sh = xf["r_u_ub"]
     r_u_ub = sh[2:n_loc+1, 1:n_node]
     r_u_ub = convert(Array{Float64, 2}, r_u_ub)
-    # r_c_cp_e::Matrix{Float64}
-    sh = xf["r_c_cp_e"]
-    r_c_cp_e = sh[2:n_loc+1, 1:n_rtft]
-    r_c_cp_e = convert(Matrix{Float64}, r_c_cp_e)
-    # r_rhs_cp_e::Matrix{Float64}
-    sh = xf["r_rhs_cp_e"]
-    r_rhs_cp_e = sh[2:n_loc+1, 1:n_rtft]
-    r_rhs_cp_e = convert(Matrix{Float64}, r_rhs_cp_e)
-    # r_cp_e_ub::Array{Float64, 1}
-    sh = xf["r_cp_e_ub"]
-    r_cp_e_ub = sh[2:n_loc+1, 1]
-    r_cp_e_ub = vec(r_cp_e_ub)
-    r_cp_e_ub = convert(Array{Float64, 1}, r_cp_e_ub)
+    # r_c_cpe::Array{Float64, 3}
+    sh = xf["r_c_cpe"]
+    r_c_cpe = zeros(n_loc, n_rtft, n_node)
+    for n in 1:n_node
+        for r in 1:n_rtft
+            col = r + n_rtft * (n - 1)
+            r_c_cpe[:, r, n] = sh[2:n_loc+1, col]
+        end
+    end
+    r_c_cpe = convert(Array{Float64, 3}, r_c_cpe)
+    # r_rhs_cpe::Array{Float64, 3}
+    sh = xf["r_rhs_cpe"]
+    r_rhs_cpe = zeros(n_loc, n_rtft, n_node)
+    for n in 1:n_node
+        for r in 1:n_rtft
+            col = r + n_rtft * (n - 1)
+            r_rhs_cpe[:, r, n] = sh[2:n_loc+1, col]
+        end
+    end
+    r_rhs_cpe = convert(Array{Float64, 3}, r_rhs_cpe)
+    # r_cpe_ub::Array{Float64, 2}
+    sh = xf["r_cpe_ub"]
+    r_cpe_ub = sh[2:n_loc+1, 1:n_node]
+    r_cpe_ub = convert(Array{Float64, 2}, r_cpe_ub)
     # r_c_Fe::Array{Float64, 4}
     sh = xf["r_c_Fe"]
     r_c_Fe = zeros(mnrfu, n_loc, n_rtft, n_node)
@@ -1611,11 +1653,10 @@ function read_params(fname)
     sh = xf["n_filter"]
     n_filter = sh[2:n_loc+1, 1:n_new]
     n_filter = convert(Array{Bool, 2}, n_filter)
-    # n_cp_bM::Vector{Float64}
+    # n_cp_bM::Array{Float64, 2}
     sh = xf["n_cp_bM"]
-    n_cp_bM = sh[2:n_loc+1, 1]
-    n_cp_bM = vec(n_cp_bM)
-    n_cp_bM = convert(Vector{Float64}, n_cp_bM)
+    n_cp_bM = sh[2:n_loc+1, 1:n_node]
+    n_cp_bM = convert(Array{Float64, 2}, n_cp_bM)
     # n_c0_bM::Vector{Float64}
     sh = xf["n_c0_bM"]
     n_c0_bM = sh[2:n_loc+1, 1]
@@ -1772,19 +1813,30 @@ function read_params(fname)
     sh = xf["n_u_ub"]
     n_u_ub = sh[2:n_loc+1, 1:n_node]
     n_u_ub = convert(Array{Float64, 2}, n_u_ub)
-    # n_c_cp_e::Matrix{Float64}
-    sh = xf["n_c_cp_e"]
-    n_c_cp_e = sh[2:n_loc+1, 1:n_new]
-    n_c_cp_e = convert(Matrix{Float64}, n_c_cp_e)
-    # n_rhs_cp_e::Matrix{Float64}
-    sh = xf["n_rhs_cp_e"]
-    n_rhs_cp_e = sh[2:n_loc+1, 1:n_new]
-    n_rhs_cp_e = convert(Matrix{Float64}, n_rhs_cp_e)
-    # n_cp_e_ub::Array{Float64, 2}
-    sh = xf["n_cp_e_ub"]
-    n_cp_e_ub = sh[2:n_loc+1, 1]
-    n_cp_e_ub = vec(n_cp_e_ub)
-    n_cp_e_ub = convert(Array{Float64, 1}, n_cp_e_ub)
+    # n_c_cpe::Array{Float64, 3}
+    sh = xf["n_c_cpe"]
+    n_c_cpe = zeros(n_loc, n_new, n_node)
+    for n in 1:n_node
+        for r in 1:n_new
+            col = r + n_new * (n - 1)
+            n_c_cpe[:, r, n] = sh[2:n_loc+1, col]
+        end
+    end
+    n_c_cpe = convert(Array{Float64, 3}, n_c_cpe)
+    # n_rhs_cpe::Array{Float64, 3}
+    sh = xf["n_rhs_cpe"]
+    n_rhs_cpe = zeros(n_loc, n_new, n_node)
+    for n in 1:n_node
+        for r in 1:n_new
+            col = r + n_new * (n - 1)
+            n_rhs_cpe[:, r, n] = sh[2:n_loc+1, col]
+        end
+    end
+    n_rhs_cpe = convert(Array{Float64, 3}, n_rhs_cpe)
+    # n_cpe_ub::Array{Float64, 2}
+    sh = xf["n_cpe_ub"]
+    n_cpe_ub = sh[2:n_loc+1, 1:n_node]
+    n_cpe_ub = convert(Array{Float64, 2}, n_cpe_ub)
     # n_c_Fe::Array{Float64, 4}
     sh = xf["n_c_Fe"]
     n_c_Fe = zeros(mnnfu, n_loc, n_new, n_node)
@@ -2010,15 +2062,14 @@ function read_params(fname)
     c_xin_cost = sh[2:n_loc+1, 1:n_mat]
     c_xin_cost = convert(Array{Float64, 2}, c_xin_cost)
     #
-    # o_cp_ub::Array{Float64, 1}
+    # o_cp_ub::Array{Float64, 2}
     sh = xf["o_cp_ub"]
-    o_cp_ub = sh[2:n_loc+1, 1]
-    o_cp_ub = vec(o_cp_ub)
-    o_cp_ub = convert(Array{Float64, 1}, o_cp_ub)
-    # o_cp_e_bM::Float64
-    sh = xf["o_cp_e_bM"]
-    o_cp_e_bM = sh[2, 1]
-    o_cp_e_bM = convert(Float64, o_cp_e_bM)
+    o_cp_ub = sh[2:n_loc+1, 1:n_node]
+    o_cp_ub = convert(Array{Float64, 2}, o_cp_ub)
+    # o_cpe_bM::Float64
+    sh = xf["o_cpe_bM"]
+    o_cpe_bM = sh[2, 1]
+    o_cpe_bM = convert(Float64, o_cpe_bM)
     # o_u_ub::Array{Float64, 2}
     sh = xf["o_u_ub"]
     o_u_ub = sh[2:n_loc+1, 1:n_node]
@@ -2177,16 +2228,34 @@ function read_params(fname)
     for i in 1:n_link
         links_list[i] = (sh[i+1, 1], sh[i+1, 2], sh[i+1, 3])
     end
-    # nkey
-    sh = xf["nkey"]
-    nkey = sh[2:n_node+1, 1]
-    nkey = vec(nkey)
-    nkey = convert(Vector{Int64}, nkey)
-    # nd_e_fltr
-    sh = xf["nd_e_fltr"]
-    nd_e_fltr = sh[2:n_node+1, 1]
-    nd_e_fltr = vec(nd_e_fltr)
-    nd_e_fltr = convert(Vector{Bool}, nd_e_fltr)
+    # ckey
+    sh = xf["ckey"]
+    ckey = sh[2:n_node+1, 1]
+    ckey = vec(ckey)
+    ckey = convert(Vector{Int64}, ckey)
+    # nd_en_fltr
+    sh = xf["nd_en_fltr"]
+    nd_en_fltr = sh[2:n_node+1, 1]
+    nd_en_fltr = vec(nd_en_fltr)
+    nd_en_fltr = convert(Vector{Bool}, nd_en_fltr)
+    # nd_em_fltr
+    sh = xf["nd_em_fltr"]
+    nd_em_fltr = sh[2:n_node+1, 1]
+    nd_em_fltr = vec(nd_em_fltr)
+    nd_em_fltr = convert(Vector{Bool}, nd_em_fltr)
+    # r_Kkey_j
+    sh = xf["r_Kkey_j"]
+    r_Kkey_j = sh[2:n_node+1, 1:n_rtft]
+    r_Kkey_j = convert(Array{Float64, 2}, r_Kkey_j) 
+    # n_Kkey_j
+    sh = xf["n_Kkey_j"]
+    n_Kkey_j = sh[2:n_node+1, 1:n_new]
+    n_Kkey_j = convert(Array{Float64, 2}, n_Kkey_j) 
+    # min_cpr::Vector{Float64}
+    sh = xf["min_cpr"]
+    min_cpr = sh[2:n_loc+1, 1]
+    min_cpr = vec(min_cpr)
+    min_cpr = convert(Vector{Float64}, min_cpr)
 
 
     p = params(n_periods,
@@ -2197,7 +2266,7 @@ function read_params(fname)
               yr_subperiod,
               y0,
               x_ub, interest,
-              sf_cap, sf_cash, sf_heat, sf_elec, sf_em,
+              sf_cap, sf_cash, sf_heat, sf_elec, sf_em, key_node,
               n_rfu, n_nfu, 
               c0,
               e_C,
@@ -2214,7 +2283,7 @@ function read_params(fname)
               r_c_U, r_rhs_U, r_c_UonSite,
               r_c_Ufac,
               r_u_ub,
-              r_c_cp_e, r_rhs_cp_e, r_cp_e_ub, r_c_Fe,
+              r_c_cpe, r_rhs_cpe, r_cpe_ub, r_c_Fe,
               r_c_Fgenf,
               r_u_ehf_ub,
               r_c_Hr, r_fu_e_ub, r_u_fu_e_ub, 
@@ -2250,9 +2319,9 @@ function read_params(fname)
               n_c_F, n_rhs_F, n_ehf_ub, n_c_U,
               n_rhs_U,
               n_c_UonSite,
-              n_c_Ufac, n_u_ub, n_c_cp_e,
-              n_rhs_cp_e,
-              n_cp_e_ub,
+              n_c_Ufac, n_u_ub, n_c_cpe,
+              n_rhs_cpe,
+              n_cpe_ub,
               n_c_Fe, n_c_Fgenf, n_u_ehf_ub,
               n_c_Hr, n_fu_e_ub, n_u_fu_e_ub,
               n_ep0_bM,
@@ -2273,7 +2342,7 @@ function read_params(fname)
               c_cts_cost,
               c_xin_cost,
               o_cp_ub,
-              o_cp_e_bM, o_u_ub, o_ehf_ub, o_ep0_bM,
+              o_cpe_bM, o_u_ub, o_ehf_ub, o_ep0_bM,
               o_ep1ge_bM,
               o_ep1gce_bM,
               o_ep1gcs_bM, 
@@ -2293,8 +2362,12 @@ function read_params(fname)
               input_mat,
               output_mat,
               links_list,
-              nkey,
-              nd_e_fltr
+              ckey,
+              nd_en_fltr,
+              nd_em_fltr,
+              r_Kkey_j,
+              n_Kkey_j,
+              min_cpr,
              )
     return p
 end

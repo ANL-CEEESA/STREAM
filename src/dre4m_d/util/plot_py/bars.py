@@ -78,7 +78,7 @@ def main():
     folder = folder.replace(":", "-")
 
     os.mkdir(folder)
-
+    print(f"Folder = {folder}")
     folder = './' + folder
     folder += '/'
 

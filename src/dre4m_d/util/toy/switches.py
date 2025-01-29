@@ -132,7 +132,7 @@ for k in range(dlrn.loc[0, "n_rtft"]):
     a.set_xlabel("Period")
     f.tight_layout()
 
-    f.savefig(folder + f"rf_{k}_.png", dpi=200, transparent=True)
+    f.savefig(folder + f"rf_{k}_.eps", dpi=200, transparent=True, format="eps")
     plt.close(f)
 
 matrix = [[rtpc[0] for col in range(ly[0].shape[1])] for row in range(ly[1].shape[0])]
@@ -166,7 +166,7 @@ a.set_ylabel("Plant")
 a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + f"rf_agg_.png", dpi=200, transparent=True)
+f.savefig(folder + f"rf_agg_.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 
@@ -178,7 +178,7 @@ for i in range(dlrn.loc[0, "n_rtft"]):
 l = a.legend(bbox_to_anchor=(1,1), loc="upper left")
 f.canvas.draw()
 bbox = l.get_window_extent().transformed(f.dpi_scale_trans.inverted())
-f.savefig(folder + "legend_rf.png", bbox_inches=bbox)
+f.savefig(folder + "legend_rf.eps", bbox_inches=bbox, format="eps")
 ######## ######## ######## ######## ######## ######## ######## ######## ########
 
 
@@ -216,7 +216,7 @@ for k in range(dlrn.loc[0, "n_new"]):
     a.set_xlabel("Period")
     f.tight_layout()
 
-    f.savefig(folder + f"nw_{k}_.png", dpi=200, transparent=True)
+    f.savefig(folder + f"nw_{k}_.eps", dpi=200, transparent=True, format="eps")
     plt.close(f)
 
 # for l in range(dlrn.loc[0, "n_loc"]):
@@ -244,7 +244,7 @@ for k in range(dlrn.loc[0, "n_new"]):
 #     a.set_xlabel("period")
 #     f.tight_layout()
 #
-#     f.savefig(folder + f"nws_l-{l}.png", dpi=200, transparent=True)
+#     f.savefig(folder + f"nws_l-{l}.eps", dpi=200, transparent=True)
 #     plt.close(f)
 
 matrix = [[ntpc[0] for col in range(ly[0].shape[1])] for row in range(ly[1].shape[0])]
@@ -278,7 +278,7 @@ a.set_ylabel("Plant")
 a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + f"nw_agg_.png", dpi=200, transparent=True)
+f.savefig(folder + f"nw_agg_.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 
@@ -291,7 +291,7 @@ for i in range(dlrn.loc[0, "n_new"]):
 l = a.legend(bbox_to_anchor=(1,1), loc="upper left")
 f.canvas.draw()
 bbox = l.get_window_extent().transformed(f.dpi_scale_trans.inverted())
-f.savefig(folder + "legend_nw.png", bbox_inches=bbox)
+f.savefig(folder + "legend_nw.eps", bbox_inches=bbox, format="eps")
 ######## ######## ######## ######## ######## ######## ######## ######## ########
 
 # for l in range(dlrn.loc[0, "n_loc"]):
@@ -331,7 +331,7 @@ a.set_ylabel("Plant")
 a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + "yo.png", dpi=200, transparent=True)
+f.savefig(folder + "yo.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 
@@ -365,7 +365,7 @@ a.set_ylabel("Plant")
 a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + "exps_.png", dpi=200, transparent=True)
+f.savefig(folder + "exps_.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 

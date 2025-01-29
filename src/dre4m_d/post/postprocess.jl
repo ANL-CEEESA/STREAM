@@ -98,9 +98,9 @@ function em_df(m::JuMP.Model, p::params, s::sets, fname::String)
         for j in s.P2
             row = j + length(s.P2) * (i-1)
             ou[row] = sum(sum(value.(m[:o_u][i, j, l, n]) 
-                          for n in s.Nd if p.nd_e_fltr[n]).*p.GcI[i, j, l]*0.29329722222222 for l in s.L)
+                          for n in s.Nd if p.nd_en_fltr[n]).*p.GcI[i, j, l]*0.29329722222222 for l in s.L)
             nu[row] = sum(sum(value.(m[:n_u][i, j, l, n]) 
-                          for n in s.Nd if p.nd_e_fltr[n]).*p.GcI[i, j, l]*0.29329722222222 for l in s.L)
+                          for n in s.Nd if p.nd_en_fltr[n]).*p.GcI[i, j, l]*0.29329722222222 for l in s.L)
         end
     end
 
@@ -135,10 +135,13 @@ This is not longer used.
 """
 function plot_cap_by_rf(m::JuMP.Model, p::params, s::sets)
     yr = generate_yr_range(p)
+    kn = p.key_node
+    
     dyr = DataFrame("yr"=>yr)
 
     ocp = value.(m[:o_cp][:, :, 1])
     ncp = value.(m[:n_cp][:, :, 1])
+
 
     for l in s.L
         if l == 1
@@ -148,13 +151,13 @@ function plot_cap_by_rf(m::JuMP.Model, p::params, s::sets)
         ncp += value.(m[:n_cp][:, :, l])
     end
 
-    rcpd = value.(m[:r_cp_d_][:, :, 1, :])
+    rcpd = value.(m[:r_cp_d_][:, :, 1, :, kn])
 
     for l in s.L
         if l == 1
             continue
         end
-        rcpd += value.(m[:r_cp_d_][:, :, 1, :])
+        rcpd += value.(m[:r_cp_d_][:, :, 1, :, kn])
     end
 
 end
@@ -194,6 +197,7 @@ Write retrofit capacity, emission and electricity consumption.
 """
 function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
+    kn = p.key_node
 
     dyr = DataFrame("yr"=>yr)
     drcp_d = DataFrame("yr"=>yr)
@@ -212,7 +216,7 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
                 t = 1
                 for i in s.P
                     for j in s.P2
-                        rcp[t] = value(m[:r_cp_d_][i, j, l, k])
+                        rcp[t] = value(m[:r_cp_d_][i, j, l, k, kn])
                         rcp_act[t] = rcp[t]*yo[i, j, l] 
                         t += 1
                     end
@@ -245,10 +249,10 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
                     for j in s.P2
                         row = j + length(s.P2) * (i-1)
                         yo = value(m[:y_o][i, j, l])
-                        rcp_acc[row] += value(m[:r_cp_d_][i, j, l, k]) * yo
+                        rcp_acc[row] += value(m[:r_cp_d_][i, j, l, k, kn]) * yo
                         rep1_acc[row] += value(m[:r_ep1ge_d_][i, j, l, k]) * yo
                         ru_acc[row] += sum(value(m[:r_u_d_][i, j, l, k, n])
-                                           for n in s.Nd if p.nd_e_fltr[n]) * yo
+                                           for n in s.Nd if p.nd_en_fltr[n]) * yo
                     end
                 end
             else
@@ -273,8 +277,8 @@ end
 Write new capacity, emission and electricity consumption.
 """
 function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
-
     yr = generate_yr_range(p)
+    kn = p.key_node
 
     dncp_d = DataFrame("yr"=>yr)
     ncp = zeros(length(s.P)*length(s.P2))
@@ -284,7 +288,7 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
                 t = 1
                 for i in s.P
                     for j in s.P2
-                        ncp[t] = value(m[:n_cp_d_][i, j, l, k])
+                        ncp[t] = value(m[:n_cp_d_][i, j, l, k, kn])
                         t += 1
                     end
                 end
@@ -310,9 +314,9 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
                 for i in s.P
                     for j in s.P2
                         row = j + length(s.P2) * (i-1)
-                        ncp_acc[row] += value(m[:n_cp_d_][i, j, l, k])
+                        ncp_acc[row] += value(m[:n_cp_d_][i, j, l, k, kn])
                         nep1_acc[row] += value(m[:n_ep1ge_d_][i, j, l, k])
-                        nu_acc[row] += sum(value(m[:n_u_d_][i, j, l, k, n]) for n in s.Nd if p.nd_e_fltr[n])
+                        nu_acc[row] += sum(value(m[:n_u_d_][i, j, l, k, n]) for n in s.Nd if p.nd_en_fltr[n])
                     end
                 end
             else
@@ -452,9 +456,9 @@ function elec_df(m::JuMP.Model, p::params, s::sets, fname::String)
     for i in s.P
         for j in s.P2
             row = j + length(s.P2) * (i-1)
-            ou[row] = sum(sum(value(m[:o_u][i, j, l, n]) for n in s.Nd if p.nd_e_fltr[n])
+            ou[row] = sum(sum(value(m[:o_u][i, j, l, n]) for n in s.Nd if p.nd_en_fltr[n])
                      for l in s.L)
-            nu[row] = sum(sum(value(m[:n_u][i, j, l, n]) for n in s.Nd if p.nd_e_fltr[n])
+            nu[row] = sum(sum(value(m[:n_u][i, j, l, n]) for n in s.Nd if p.nd_en_fltr[n])
                      for l in s.L)
         end
     end
@@ -475,8 +479,8 @@ function elec_df(m::JuMP.Model, p::params, s::sets, fname::String)
         for i in s.P
             for j in s.P2
                 row = j + length(s.P2) * (i-1)
-                ou[row] = sum(value(m[:o_u][i, j, l, n]) for n in s.Nd if p.nd_e_fltr[n])
-                nu[row] = sum(value(m[:n_u][i, j, l, n]) for n in s.Nd if p.nd_e_fltr[n])
+                ou[row] = sum(value(m[:o_u][i, j, l, n]) for n in s.Nd if p.nd_en_fltr[n])
+                nu[row] = sum(value(m[:n_u][i, j, l, n]) for n in s.Nd if p.nd_en_fltr[n])
             end
         end
         dou[:,"l_$(l)"] = ou
@@ -727,9 +731,18 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
     yr = generate_yr_range(p)
     # existing plants
     yo = value.(m[:y_o])
-    r_cp_e = value.(m[:r_cp_e])  # process
-    r_ep0 = value.(m[:r_ep0])  # ep0
-    r_fuel_em = r_ep0 .- r_cp_e  # fuel
+    r_ep0 = value.(m[:r_ep0])  # process scope 0
+    r_cpe = zeros(p.n_periods, p.n_subperiods, p.n_location)
+    for i in s.P
+        for j in s.P2
+            for l in s.L
+                r_cpe[i, j, l] = sum(value(m[:r_cpe][i, j, l, n]) 
+                                     for n in s.Nd if p.nd_em_fltr[n]
+                                    )
+            end
+        end
+    end
+    r_fuel_em = r_ep0 .- r_cpe  # fuel
 
     r_ep1 = value.(m[:r_ep1ge])
     r_uem = zeros(length(s.P)*length(s.P2), length(s.L))
@@ -740,17 +753,26 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
                 r_uem[row, l] = sum((value(m[:r_u][i, j, l, n])*
                                      p.GcI[i, j, l]*0.29329722222222*
                                      value(yo[i, j, l]) 
-                                     for n in s.Nd if p.nd_e_fltr[n]))
+                                     for n in s.Nd if p.nd_en_fltr[n]))
             end
         end
     end
     
     r_cap_em = r_ep0 .- r_ep1
     # new plants
-    n_cp_e = value.(m[:n_cp_e])
     n_ep0 = value.(m[:n_ep0])
+    n_cpe = zeros(p.n_periods, p.n_subperiods, p.n_location)
+    for i in s.P
+        for j in s.P2
+            for l in s.L
+                n_cpe[i, j, l] = sum(value(m[:n_cpe][i, j, l, n]) 
+                                     for n in s.Nd if p.nd_em_fltr[n]
+                                    )
+            end
+        end
+    end
 
-    n_fuel_em = n_ep0 .- n_cp_e
+    n_fuel_em = n_ep0 .- n_cpe
 
     n_ep1 = value.(m[:n_ep1ge])
     #n_uem = value.(m[:n_u]).*p.GcI*0.29329722222222
@@ -762,7 +784,7 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
                 n_uem[row, l] = sum((value(m[:r_u][i, j, l, n])*
                                      p.GcI[i, j, l]*
                                      0.29329722222222) for n in s.Nd 
-                                    if p.nd_e_fltr[n])
+                                    if p.nd_en_fltr[n])
             end
         end
     end
@@ -779,8 +801,9 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
     dnep1 = DataFrame("yr" => yr)
     dnuem = DataFrame("yr" => yr)
     #
+    ndemfltr = p.nd_em_fltr
     for l in s.L
-        rcpe = r_cp_e[:, :, l].*yo[:, :, l]
+        rcpe = r_cpe[:, :, l].*yo[:, :, l]
         rfue = r_fuel_em[:, :, l].*yo[:, :, l]
         rep1 = r_ep1[:, :, l].*yo[:, :, l]
         #ruem = r_uem[:, l].*yo[:, :, l]
@@ -796,7 +819,7 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
         druem[:, "l_$(l)"] = r_uem[:, l]
         
         #
-        ncpe = n_cp_e[:, :, l]
+        ncpe = n_cpe[:, :, l]
         nfue = n_fuel_em[:, :, l]
         nep1 = n_ep1[:, :, l]
         #nuem = n_uem[:, :, l]

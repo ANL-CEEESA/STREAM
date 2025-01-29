@@ -161,6 +161,6 @@ for i in range(n_tp):
                           # alpha=1.0
                           )
 
-fig.savefig("map.png")
+fig.savefig("map.eps", format="eps")
 
 
