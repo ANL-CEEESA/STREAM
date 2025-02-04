@@ -47,6 +47,14 @@ import matplotlib.pyplot as plt
 
 __author__ = "David Thierry @dthierry"
 
+def pltrcparams():
+    plt.rcParams.update({'font.size': 18})
+    rfigsize = plt.rcParams['figure.figsize']
+    ratio = rfigsize[1]/rfigsize[0]
+    sarang_size = 6.9444444444
+    plt.rcParams['figure.figsize'] = [sarang_size*ratio, sarang_size]
+    plt.rcParams['font.sans-serif'] = "Helvetica"
+
 # create a matrix for capacities by tech, loc and time
 def cap_matrix(rf):
     cprf = rf + "/drcp_d_act.csv"
@@ -87,7 +95,7 @@ def cap_matrix(rf):
 
 # plant file
 plant_f = "/Users/dthierry/Projects/dr3milp/src/ins_07_29/softX/fac_.csv"
-plant_f = "/Users/dthierry/Projects/dr3milp/src/data/state_cap.csv"
+#plant_f = "/Users/dthierry/Projects/dr3milp/src/data/state_cap.csv"
 dictbounds = {'lat_1': 29.5, 'lat_2': 45.5, 'lon_0': -96.5, 'lat_0': 38.5}
 
 projstring = '+proj=aea +lat_1={} +lat_2={} +lat_0={} +lon_0={}'.format(dictbounds['lat_1'], dictbounds['lat_2'], dictbounds['lat_0'], dictbounds['lon_0'])
@@ -121,7 +129,6 @@ for row in range(dp.shape[0]):
     if no_location:
         raise(f"This state was not found in the map {s}")
     locations.append(idx)
-print(len(locations))
 n_loc = dp.shape[0]
 #
 centroids = d.centroid
@@ -129,12 +136,13 @@ xc = centroids.x
 yc = centroids.y
 
 
-nrows = 2
+nrows = 4
 
 
 edgecolor = "k"
 facecolor = "w"
 
+pltrcparams()
 # dummy plot generator
 f0, a0 = plt.subplots()
 #
@@ -142,11 +150,14 @@ piecolors = [
     "#e7b24b",
     "#cec44b",
     "#b0d54b",
-    "#88e54b",
+    "#DAEFB3",
+    "#68C5DB",
     "#6adc75",
     "#68b7a7",
     "#6890ca",
-    "#6a5ee6" ]
+    "#6a5ee6",
+]
+
 
 labels = ["2020", "2025", "2030", "2035", "2040", "2045", "2050", "2055"]
 
@@ -157,20 +168,22 @@ cap, (n_tp, n_loc, n_tech), labels = cap_matrix(rf)
 labels = ["t={}".format(i) for i in range(n_tp)]
 # main plot
 fig, ax = plt.subplots(nrows, n_tp//nrows, sharex=True, sharey=True, dpi=600,
-                       gridspec_kw={'hspace':-0.55, 'wspace':-0.05})
-plt.rcParams.update({'axes.titlesize': 'x-small'})
+                       gridspec_kw={'hspace':0.1, 'wspace':-0.05})
+#plt.rcParams.update({'axes.titlesize': 'x-small'})
+
+
 for i in range(n_tp):
     axx = ax.flat[i]
     d.plot(ax=axx, lw=0.1, facecolor='none', edgecolor=edgecolor, zorder=1e6)
-    axx.set_title(labels[i])
+    axx.set_title(labels[i], pad=-6.0)
     axx.axis("off")
     for plant in range(n_loc):
         loc_idx = locations[plant]
         x, y = xc.iloc[loc_idx], yc.iloc[loc_idx]
         values = cap[plant, :, i]
         #s = sum(values)
-        s = sum(values) * 0.8
-        s = sum(values) * 1e-02/2
+        s = sum(values)*5
+        #s = sum(values) * 1e-02/2
         facecolor=piecolors
         if s <= 1e-08:
             wedges = a0.pie([1], colors="red")
@@ -190,6 +203,6 @@ for i in range(n_tp):
                           # alpha=1.0
                           )
 
-fig.savefig("map.png")
+fig.savefig("map.eps", format="eps")
 
 

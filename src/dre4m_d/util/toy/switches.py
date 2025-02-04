@@ -55,7 +55,13 @@ except IndexError:
 f0 = arg
 
 def pltrcparams():
-    plt.rcParams.update({'font.size': 16})
+    plt.rcParams.update({'font.size': 26})
+    rfigsize = plt.rcParams['figure.figsize']
+    ratio = rfigsize[1]/rfigsize[0]
+    sarang_size = 6.9444444444
+    plt.rcParams['figure.figsize'] = [sarang_size, sarang_size*ratio]
+    plt.rcParams['font.sans-serif'] = "Helvetica"
+    plt.rcParams['figure.autolayout'] = True
 
 def hex_to_rgb(value):
     """Return (red, green, blue) for the color given as #rrggbb."""
@@ -90,47 +96,32 @@ dyr = pd.read_csv(dyrf)
 dyn = pd.read_csv(dynf)
 dlrn = pd.read_csv(lrnf)
 
-
-
-rf_l = ["Orig", # 1
-        "r:Efficiency", # 2
-        "r:Coal->H2", # 5
-        "r:Full elec", # 7
-        "r:CCUS", # 8
-        ]
-nw_l = ["N/A", # 1
-        "n:Efficiency", # 2
-        "n:Coal->H2", # 5
-        "n:Full elec", # 7
-        "n:CCUS", # 8
-        ]
-
-rf_l = ["Incumbent", # 1
-        "r:Alt 1", # 2
-        "r:Alt 2", # 5
-        "r:Alt 3", # 7
-        "r:Alt 4", # 8
-        ]
-nw_l = ["N/A", # 1
-        "n:Alt 1", # 2
-        "n:Alt 2", # 5
-        "n:Alt 3", # 7
-        "n:Alt 4", # 8
-        ]
-# w, h
-# #b6cbe8
-
-
-
 colors = [
     "#ffffff",
     "#cec44b",
     "#b0d54b",
-    "#88e54b",
+    "#DAEFB3",
+    "#68C5DB",
     "#6adc75",
     "#68b7a7",
     "#6890ca",
-    "#6a5ee6" ]
+    "#6a5ee6",
+]
+
+rlf = "retro_labels.csv"
+nlf = "new_labels.csv"
+
+rfilter_f = "retro_filters.csv"
+nfilter_f = "new_filters.csv"
+
+drl = pd.read_csv(rlf)
+labr = drl.iloc[:,0].to_list()
+dnl = pd.read_csv(nlf)
+labn = dnl.iloc[:,0].to_list()
+
+
+rfilter = pd.read_csv(rfilter_f)
+nfilter = pd.read_csv(nfilter_f)
 
 rtpc = [hex_to_rgb(i) for i in colors]
 ntpc = [hex_to_rgb(i) for i in colors]
@@ -143,22 +134,27 @@ ntslices = nper * nsp
 ytick = [i for i in range(0,nloc)]
 ylab = [f"{i}" for i in range(1,nloc+1)]
 ly = []
+
 for k in range(dlrn.loc[0, "n_rtft"]):
-    yr = dyr[f"k_{k+1}_l_1"]
+    yr = dyr[f"k_{k+1}_l_1"]  # this one always exists
     yo_l = dyo[f"l_1"].to_numpy()
     yr = np.multiply(yr, yo_l)
     for l in range(1, dlrn.loc[0, "n_loc"]):
-        c = f"k_{k+1}_l_{l+1}"
-        yr_l = dyr[c].to_numpy()
+        if rfilter.iloc[l, k]:
+            c = f"k_{k+1}_l_{l+1}"
+            yr_l = dyr[c].to_numpy()
 
-        yo_l = dyo[f"l_{l+1}"].to_numpy()
-        yr_l = np.multiply(yr_l, yo_l)
+            yo_l = dyo[f"l_{l+1}"].to_numpy()
+            yr_l = np.multiply(yr_l, yo_l)
+        else:
+            yr_l = np.zeros(dyr.shape[0])
 
         yr = np.vstack((yr, yr_l))
+
     ly.append(yr)
     #yr = np.transpose(yr)
 
-    f, a = plt.subplots(figsize=(5, 25))
+    f, a = plt.subplots()#figsize=(5, 25))
 
     a.set_xticks(np.arange(0, ntslices, 1))
     a.set_yticks(ticks=ytick, labels=ylab)
@@ -173,10 +169,10 @@ for k in range(dlrn.loc[0, "n_rtft"]):
 
     a.set_title(f"Retrofit {k} status")
     a.set_ylabel("Plant")
-    a.set_xlabel("5-Year Period")
+    a.set_xlabel("Period")
     f.tight_layout()
 
-    f.savefig(folder + f"rf_{k}_.png", dpi=200, transparent=True)
+    f.savefig(folder + f"rf_{k}_.eps", dpi=200, transparent=True, format="eps")
     plt.close(f)
 
 matrix = [[rtpc[0] for col in range(ly[0].shape[1])] for row in range(ly[1].shape[0])]
@@ -193,7 +189,7 @@ for row in range(ly[0].shape[0]):
             print("this is an error")
         matrix[row][col] = c
 
-f, a = plt.subplots(figsize=(5, 25))
+f, a = plt.subplots()#figsize=(5, 25))
 
 a.set_xticks(np.arange(0, ntslices, 1))
 a.set_yticks(ticks=ytick, labels=ylab)
@@ -207,22 +203,22 @@ a.tick_params(which="minor", bottom=False, left=False)
 
 a.set_title(f"Retrofit status")
 a.set_ylabel("Plant")
-a.set_xlabel("5-Year Period")
+a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + f"rf_agg_.png", dpi=200, transparent=True)
+f.savefig(folder + f"rf_agg_.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 
 ######## ######## ######## ######## ######## ######## ######## ######## ########
 # generate the legend
 f, a = plt.subplots(dpi=300)
-for i in range(len(rf_l)):
-    a.bar([1], [1], label=rf_l[i], color=colors[i])
+for i in range(dlrn.loc[0, "n_rtft"]):
+    a.bar([1], [1], label=labr[i], color=colors[i])
 l = a.legend(bbox_to_anchor=(1,1), loc="upper left")
 f.canvas.draw()
 bbox = l.get_window_extent().transformed(f.dpi_scale_trans.inverted())
-f.savefig(folder + "legend_rf.png", bbox_inches=bbox)
+f.savefig(folder + "legend_rf.eps", bbox_inches=bbox, format="eps")
 ######## ######## ######## ######## ######## ######## ######## ######## ########
 
 
@@ -230,14 +226,17 @@ ly = []
 for k in range(dlrn.loc[0, "n_new"]):
     yn = dyn[f"k_{k+1}_l_1"]
     for l in range(1, dlrn.loc[0, "n_loc"]):
-        c = f"k_{k+1}_l_{l+1}"
-        yn_l = dyn[c].to_numpy()
+        if rfilter.iloc[l, k]:
+            c = f"k_{k+1}_l_{l+1}"
+            yn_l = dyn[c].to_numpy()
+        else:
+            yr_l = np.zeros(dyn.shape[0])
         yn = np.vstack((yn, yn_l))
 
     ly.append(yn)
     #f, a = plt.subplots(figsize=(20, 5))
     #f, a = plt.subplots(figsize=(24, 8))
-    f, a = plt.subplots(figsize=(5, 25))
+    f, a = plt.subplots()#figsize=(5, 25))
 
     a.set_xticks(np.arange(0, ntslices, 1))
     #a.set_yticks(np.arange(1, nloc+1, 1))
@@ -254,10 +253,10 @@ for k in range(dlrn.loc[0, "n_new"]):
 
     a.set_title(f"New {k} status")
     a.set_ylabel("Plant")
-    a.set_xlabel("5-Year Period")
+    a.set_xlabel("Period")
     f.tight_layout()
 
-    f.savefig(folder + f"nw_{k}_.png", dpi=200, transparent=True)
+    f.savefig(folder + f"nw_{k}_.eps", dpi=200, transparent=True, format="eps")
     plt.close(f)
 
 # for l in range(dlrn.loc[0, "n_loc"]):
@@ -285,7 +284,7 @@ for k in range(dlrn.loc[0, "n_new"]):
 #     a.set_xlabel("period")
 #     f.tight_layout()
 #
-#     f.savefig(folder + f"nws_l-{l}.png", dpi=200, transparent=True)
+#     f.savefig(folder + f"nws_l-{l}.eps", dpi=200, transparent=True)
 #     plt.close(f)
 
 matrix = [[ntpc[0] for col in range(ly[0].shape[1])] for row in range(ly[1].shape[0])]
@@ -302,7 +301,7 @@ for row in range(ly[0].shape[0]):
             print("this is an error")
         matrix[row][col] = c
 
-f, a = plt.subplots(figsize=(5, 25))
+f, a = plt.subplots()#figsize=(5, 25))
 
 a.set_xticks(np.arange(0, ntslices, 1))
 a.set_yticks(ticks=ytick, labels=ylab)
@@ -316,10 +315,10 @@ a.tick_params(which="minor", bottom=False, left=False)
 
 a.set_title(f"New plant status")
 a.set_ylabel("Plant")
-a.set_xlabel("5-Year Period")
+a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + f"nw_agg_.png", dpi=200, transparent=True)
+f.savefig(folder + f"nw_agg_.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 
@@ -327,12 +326,12 @@ plt.close(f)
 ######## ######## ######## ######## ######## ######## ######## ######## ########
 # generate the legend
 f, a = plt.subplots(dpi=300)
-for i in range(len(nw_l)):
-    a.bar([1], [1], label=nw_l[i], color=colors[i])
+for i in range(dlrn.loc[0, "n_new"]):
+    a.bar([1], [1], label=labn[i], color=colors[i])
 l = a.legend(bbox_to_anchor=(1,1), loc="upper left")
 f.canvas.draw()
 bbox = l.get_window_extent().transformed(f.dpi_scale_trans.inverted())
-f.savefig(folder + "legend_nw.png", bbox_inches=bbox)
+f.savefig(folder + "legend_nw.eps", bbox_inches=bbox, format="eps")
 ######## ######## ######## ######## ######## ######## ######## ######## ########
 
 # for l in range(dlrn.loc[0, "n_loc"]):
@@ -352,7 +351,7 @@ yo = np.transpose(yo_l)
 
 
 
-f, a = plt.subplots(figsize=(5, 25))
+f, a = plt.subplots()#figsize=(5, 25))
 a.set_xticks(np.arange(0, ntslices, 1))
 #a.set_yticks(np.arange(1, nloc+1, 1))
 #a.set_yticks(prange)
@@ -369,10 +368,10 @@ a.tick_params(which="minor", bottom=False, left=False)
 
 a.set_title(f"Online status")
 a.set_ylabel("Plant")
-a.set_xlabel("5-Year Period")
+a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + "yo.png", dpi=200, transparent=True)
+f.savefig(folder + "yo.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 
@@ -385,7 +384,7 @@ ye = np.transpose(ye_l)
 
 #f, a = plt.subplots(figsize=(20, 5))
 #f, a = plt.subplots(figsize=(24, 8))
-f, a = plt.subplots(figsize=(5, 25))
+f, a = plt.subplots()#figsize=(5, 25))
 
 a.set_xticks(np.arange(0, ntslices, 1))
 #a.set_yticks(np.arange(1, nloc+1, 1))
@@ -403,10 +402,10 @@ a.tick_params(which="minor", bottom=False, left=False)
 
 a.set_title("Expansion status")
 a.set_ylabel("Plant")
-a.set_xlabel("5-Year Period")
+a.set_xlabel("Period")
 f.tight_layout()
 
-f.savefig(folder + "exps_.png", dpi=200, transparent=True)
+f.savefig(folder + "exps_.eps", dpi=200, transparent=True, format="eps")
 plt.close(f)
 
 

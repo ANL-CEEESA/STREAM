@@ -1,6 +1,6 @@
 # Copyright (C) 2023, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, 
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy, 
 # Economic, and Equity Analysis Model
 # By: Argonne National Laboratory
 # BSD-3 OPEN SOURCE LICENSE
@@ -33,8 +33,8 @@
 
 # vim: expandtab colorcolumn=80 tw=80
 
-# created by David Thierry @dthierry 2022
-# description: module definition for DRE4M
+# written by David Thierry @dthierry 2022
+# description: module definition for STRE3M
 # log:
 # 1-30-23 renaming 
 #
@@ -43,10 +43,14 @@
 
 module dre4m
 
+include("./utils/journalist.jl")
+export prJrnl, jrnlMode, jrnlst!, setJrnlTag!
+
+include("./dre4m_c/dre4m_c.jl")
+
 include("./dre4m_d/dre4m_d.jl")
 using .dre4m_d 
-export read_params, sets, createBlockMod, attachPeriodBlock, attachLocationBlock, attachFullObjectiveBlock, load_discrete_state, save_discrete_state, postprocess_d
-include("./dre4m_c/dre4m_c.jl")
+export params, write_params, read_params, sets, createBlockMod, attachPeriodBlock, attachLocationBlock, attachFullObjectiveBlock, load_discrete_state, save_discrete_state, postprocess_d, append_fuelnames!, append_units_names!, append_tech_names!, min_ep1ge!
 
 
 end

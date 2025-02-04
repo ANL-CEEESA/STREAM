@@ -1,6 +1,6 @@
 # Copyright (C) 2023, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, 
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy, 
 # Economic, and Equity Analysis Model
 # By: Argonne National Laboratory
 # BSD-3 OPEN SOURCE LICENSE
@@ -33,7 +33,11 @@
 
 # vim: expandtab colorcolumn=80 tw=80
 
-# created by David Thierry @dthierry 2024
+# written by David Thierry @dthierry 2024
+# bm.jl
+# notes: Model (block)
+# notes of 10-29:
+# added variables, r_x_in_d_, r_x_out_d_, r_mass_b_e_, r_comp_link_e_
 #
 #
 #80#############################################################################
@@ -89,11 +93,23 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     Kr = s.Kr
     Kn = s.Kn
-    Fu = s.Fu
+    Fu_r = s.Fu_r
+    Fu_n = s.Fu_n
     Nf = s.Nf
+    Nd = s.Nd 
+
 
     n_periods = p.n_periods
     n_subperiods = p.n_subperiods
+    #
+    r_filter = p.r_filter
+    n_filter = p.n_filter
+
+    nd_en_fltr = p.nd_en_fltr
+    nd_em_fltr = p.nd_em_fltr
+    ckey = p.ckey
+    key_node = p.key_node
+
     # True/False
     sT = 1 # p.sTru
     sF = sT + 1 # p.sFal  # offline
@@ -117,12 +133,15 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # annuity
     # additional capital (ladd)
     ##
+    # we'd like to have a filter set r_filter[l\inL, k∈Kr] -> \{True, False\}
+
     # variables
     ##
     # tier 0: online status
-    @variable(m, y_o[i=P, j=P2, l=L], Bin, upper_bound=1.0)  # online
+    @variable(m, y_o[i=P, j=P2, l=L], Bin, upper_bound=1.0;
+             )  # online
     # tier 1: retrofit variable
-    @variable(m, y_r[i=P, j=P2, l=L, k=Kr], Bin, upper_bound=1.0)  # online
+    @variable(m, y_r[i=P, j=P2, l=L, k=Kr; r_filter[l, k]], Bin, upper_bound=1.0)
     # tier 2: retirement
     # there is no retirement binary variable per se.  
     
@@ -141,60 +160,72 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     
     # d082223
     # capacity
-    @variable(m, r_cp[i=P, j=P2, l=L])
-    @variable(m, r_cp_d_[i=P, j=P2, l=L, k=Kr])  # retrofit capacity disagg
+    @variable(m, r_cp[i=P, j=P2, l=L, n=Nd])
+    # retrofit capacity disagg
+
+    @variable(m, r_cp_d_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]])    
     @variable(m, cpb[i=P, j=P2, l=L] >= 0.0)  # base capacity
-    @variable(m, r_cpb_d_[i=P, j=P2, l=L, k=Kr] >= 0.0)  # base capacity disagg
+    # base capacity disagg
+    @variable(m, r_cpb_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]] >= 0.0)
+    # surplus
     
     # d082923
     # heating requirement
-    @variable(m, r_eh[i=P, j=P2, l=L]) # 0
-    @variable(m, r_eh_d_[i=P, j=P2, l=L, k=Kr]) # 1
+    @variable(m, r_eh[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    @variable(m, r_eh_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                         r_filter[l, k] && nd_en_fltr[n]])
     # fuel requirement 
-    @variable(m, r_ehf[i=P, j=P2, l=L, f=Fu]) # 2
-    @variable(m, r_ehf_d_[i=P, j=P2, l=L, k=Kr, f=Fu]) # 3
+    @variable(m, r_ehf[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]])
+    @variable(m, r_ehf_d_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd; 
+                          r_filter[l, k] && nd_en_fltr[n]])
     # electricity requirement (on-site)
-    @variable(m, r_u[i=P, j=P2, l=L]) # 4
-    @variable(m, r_u_d_[i=P, j=P2, l=L, k=Kr]) # 5
+    @variable(m, r_u[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]]) # 4
+    @variable(m, r_u_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                        r_filter[l, k] && nd_en_fltr[n]]) # 5
     
     # electricity emissions (off-site)
-    @variable(m, r_u_onsite[i=P, j=P2, l=L]) #
-    @variable(m, r_u_onsite_d_[i=P, j=P2, l=L, k=Kr]) #
+    @variable(m, r_u_onsite[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]]) #
+    @variable(m, r_u_onsite_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                               r_filter[l, k] && nd_en_fltr[n]])
 
     # fuel from onsite electricity generation
-    @variable(m, r_u_ehf[i=P, j=P2, l=L, f=Fu])
-    @variable(m, r_u_ehf_d_[i=P, j=P2, l=L, k=Kr, f=Fu] >= 0.0)
+    @variable(m, r_u_ehf[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]])
+    @variable(m, r_u_ehf_d_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd; 
+                            r_filter[l, k] && nd_en_fltr[n]] >= 0.0)
     #
     # process (intrinsic) emissions
-    @variable(m, r_cp_e[i=P, j=P2, l=L]) # 
-    @variable(m, r_cp_e_d_[i=P, j=P2, l=L, k=Kr]) # 
+    @variable(m, r_cpe[i=P, j=P2, l=L, n=Nd; nd_em_fltr[n]]) # 
+    @variable(m, r_cpe_d_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                          r_filter[l, k] && nd_em_fltr[n]]) # 
     #
-    @variable(m, r_fu_e[i=P, j=P2, l=L])
-    @variable(m, r_fu_e_d_[i=P, j=P2, l=L, k=Kr])
+    @variable(m, r_fu_e[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    @variable(m, r_fu_e_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                           r_filter[l, k] && nd_en_fltr[n]])
     # 
-    @variable(m, r_u_fu_e[i=P, j=P2, l=L])
-    @variable(m, r_u_fu_e_d_[i=P, j=P2, l=L, k=Kr])
+    @variable(m, r_u_fu_e[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    @variable(m, r_u_fu_e_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                             r_filter[l, k] && nd_en_fltr[n]])
 
     # process (total) disaggregated emissions, e.g. process + fuel, etc.
     @variable(m, r_ep0[i=P, j=P2, l=L]) # em0
-    @variable(m, r_ep0_d_[i=P, j=P2, l=L, k=Kr]) # 
+    @variable(m, r_ep0_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
     # scope 1, emitted
-    @variable(m, r_ep1ge[i=P, j=P2, l=L]) #  em1
-    @variable(m, r_ep1ge_d_[i=P, j=P2, l=L, k=Kr]) # 
+    @variable(m, r_ep1ge[i=P, j=P2, l=L]) # em1
+    @variable(m, r_ep1ge_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
     # scope 1, captured
-    @variable(m, r_ep1gce[i=P, j=P2, l=L]) #  em2
-    @variable(m, r_ep1gce_d_[i=P, j=P2, l=L, k=Kr]) # 
+    @variable(m, r_ep1gce[i=P, j=P2, l=L]) # em2
+    @variable(m, r_ep1gce_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
     # scope 1,  stored
-    @variable(m, r_ep1gcs[i=P, j=P2, l=L]) #  em3
-    @variable(m, r_ep1gcs_d_[i=P, j=P2, l=L, k=Kr]) # 
+    @variable(m, r_ep1gcs[i=P, j=P2, l=L]) # em3
+    @variable(m, r_ep1gcs_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
     
     # feedstocks
     @variable(m, r_fstck[i=P, j=P2, l=L, f=Nf])
-    @variable(m, r_fstck_d_[i=P, j=P2, l=L, k=Kr, f=Nf] >= 0.0)
+    @variable(m, r_fstck_d_[i=P, j=P2, l=L, k=Kr, f=Nf; r_filter[l, k]] >= 0.0)
 
     # operating and maintenance
-    @variable(m, r_conm_d_[i=P, j=P2, l=L, k=Kr])  # 
-    @variable(m, r_conm[i=P, j=P2, l=L])  # 
+    @variable(m, r_conm_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    @variable(m, r_conm[i=P, j=P2, l=L]) 
 
     # d083023
     # loan state
@@ -208,7 +239,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     rl0ub0d = maximum(p.r_l0_ub)
     @variable(m, r_l0[i=P, j=P2, l=L], 
               lower_bound=0.0)#, upper_bound=rl0ub0d) # capital (loan)
-    @variable(m, r_l0_d_[i=P, j=P2, l=L, k=Kr]) # 
+    @variable(m, r_l0_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) 
     @variable(m, r_l0_pd_[i=P, j=P2, l=L, (sT, sF)], 
               lower_bound=0.0)#, upper_bound=rl0ub0d)
     # add cost 
@@ -222,7 +253,8 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
               #upper_bound=rl0ub0d)
 
     #########
-    @variable(m, r_e_c_d_[i=P, j=P2, l=L, k=Kr], lower_bound=0.0)
+    @variable(m, r_e_c_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]], 
+              lower_bound=0.0)
     #########
     
     # retrofit-expansion loan
@@ -231,16 +263,16 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
               lower_bound=0.0
              # , upper_bound=rleub0d
              )
-    @variable(m, r_le_d_[i=P, j=P2, l=L, k=Kr])
+    @variable(m, r_le_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
     @variable(m, r_le_pd_[i=P, j=P2, l=L, (sT, sF)], 
               lower_bound=0.0
              # , upper_bound=rleub0d
              )
     #
-    @variable(m, r_leadd[i=P, j=P2, l=L]#, lower_bound=0.0, 
+    @variable(m, r_leadd[i=P, j=P2, l=L] 
               # upper_bound=rleub0d
              )
-    @variable(m, r_leadd_d_[i=P, j=P2, l=L], lower_bound=0.0, 
+    @variable(m, r_leadd_d_[i=P, j=P2, l=L], lower_bound=0.0 
              # upper_bound=rleub0d
              )
 
@@ -261,13 +293,13 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, r_ann0[i=P, j=P2, l=L])
     @variable(m, r_ann0_0[i=P, j=P2, l=L] >= 0.0)
     @variable(m, r_ann0_1[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, r_ann0_d_[i=P, j=P2, l=L, k=Kr])
+    @variable(m, r_ann0_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
 
     # retrofit-expansion annuity 
     @variable(m, r_anne[i=P, j=P2, l=L])
     @variable(m, r_anne_0[i=P, j=P2, l=L] >= 0.0)
     @variable(m, r_anne_1[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, r_anne_d_[i=P, j=P2, l=L, k=Kr])
+    @variable(m, r_anne_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
 
     # retrofit payment
     @variable(m, r_pay0[i=P, j=P2, l=L], lower_bound=0.0, 
@@ -288,7 +320,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, e_ladd_d_[i=P, j=P2, l=L] >= 0.0, 
               upper_bound=p.e_ladd_ub[l])
 
-    @variable(m, e_l_d_[i=P, j=P2, l=L, (sT, sF)]>=0.0) # disaggregated
+    @variable(m, e_l_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0) # disaggregated
     @variable(m, e_l_pd_[i=P, j=P2, l=L, (sT, sF)], lower_bound=0.0, 
               upper_bound=p.e_l_ub[l])
     @variable(m, e_yps[i=P, j=P2, l=L], Bin) # 1 if paid, 0 otw
@@ -322,21 +354,22 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     # 76 
     # 76 #######################################################################
-    @variable(m, y_n[i=P, j=P2, l=L, k=Kn], Bin, upper_bound=1.0) 
+    @variable(m, y_n[i=P, j=P2, l=L, k=Kn; n_filter[l, k]], Bin, upper_bound=1.0) 
     # this means plant kind k
     @variable(m, n_c0[i=P, l=L], lower_bound=0.0)  
     # the new capacity, dissagg over P
-    @variable(m, n_c0_d_[i=P, j=P2, l=L, k=Kn] >= 0) # disaggregated
+    @variable(m, n_c0_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0) # disaggregated
 
-    @variable(m, n_cp[i=P, j=P2, l=L], lower_bound=0.0, 
-              upper_bound=p.n_cp_bM[l])
-    @variable(m, n_cp_d_[i=P, j=P2, l=L, k=Kn] >= 0) # disaggregated variable
+    @variable(m, n_cp[i=P, j=P2, l=L, n=Nd], lower_bound=0.0, 
+              upper_bound=p.n_cp_bM[l, n])
+    # disaggregated variable
+    @variable(m, n_cp_d_[i=P, j=P2, l=L, k=Kn, n=Nd; n_filter[l, k]] >= 0)
 
     #
-    @variable(m, n_l_d_[i=P, j=P2, l=L, k=Kn])
+    @variable(m, n_l_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]])
     @variable(m, n_l[i=P, j=P2, l=L], lower_bound=0, upper_bound=p.n_l_bM[l])
 
-    @variable(m, n_ann_d_[i=P, j=P2, l=L, k=Kn] >= 0)
+    @variable(m, n_ann_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0)
     @variable(m, n_ann[i=P, j=P2, l=L])
     @variable(m, n_ann_0[i=P, j=P2, l=L]>=0)
     @variable(m, n_ann_1[i=P, j=P2, l=L]>=0)
@@ -361,56 +394,64 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # 76 #######################################################################
     
     # heating requirement
-    @variable(m, n_eh[i=P, j=P2, l=L]) # 0
-    @variable(m, n_eh_d_[i=P, j=P2, l=L, k=Kn]) # 1
+    @variable(m, n_eh[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]]) # 0
+    @variable(m, n_eh_d_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                         n_filter[l, k] && nd_en_fltr[n]]) # 1
     # fuel requirement 
-    @variable(m, n_ehf[i=P, j=P2, l=L, f=Fu]) # 2
-    @variable(m, n_ehf_d_[i=P, j=P2, l=L, k=Kn, f=Fu]) # 3
+    @variable(m, n_ehf[i=P, j=P2, l=L, f=Fu_n[l], n=Nd; nd_en_fltr[n]]) # 2
+    @variable(m, n_ehf_d_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd; 
+                          n_filter[l, k] && nd_en_fltr[n]])
     # electricity requirement
-    @variable(m, n_u[i=P, j=P2, l=L], lower_bound=0.0, 
-              upper_bound=p.n_u_bM[l]) # 4
-    @variable(m, n_u_d_[i=P, j=P2, l=L, k=Kn]) # 5
+    @variable(m, n_u[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]], lower_bound=0.0, 
+              upper_bound=p.n_u_ub[l, n]) # 4
+    @variable(m, n_u_d_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                        n_filter[l, k] && nd_en_fltr[n]]) # 5
 
     # electricity emissions (off-site)
-    @variable(m, n_u_onsite[i=P, j=P2, l=L]) #
-    @variable(m, n_u_onsite_d_[i=P, j=P2, l=L, k=Kn]) #
+    @variable(m, n_u_onsite[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]]) #
+    @variable(m, n_u_onsite_d_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                               n_filter[l, k] && nd_en_fltr[n]])
 
     # fuel from onsite electricity generation
-    @variable(m, n_u_ehf[i=P, j=P2, l=L, f=Fu])
-    @variable(m, n_u_ehf_d_[i=P, j=P2, l=L, k=Kn, f=Fu] >= 0.0)
+    @variable(m, n_u_ehf[i=P, j=P2, l=L, f=Fu_n[l], n=Nd; nd_en_fltr[n]])
+    @variable(m, n_u_ehf_d_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd;
+                            n_filter[l, k] && nd_en_fltr[n]] >= 0.0)
 
     # process (intrinsic) emissions
-    @variable(m, n_cp_e[i=P, j=P2, l=L]) # 6
-    @variable(m, n_cp_e_d_[i=P, j=P2, l=L, k=Kn]) # 7
+    @variable(m, n_cpe[i=P, j=P2, l=L, n=Nd; nd_em_fltr[n]]) # 6
+    @variable(m, n_cpe_d_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                          n_filter[l, k] && nd_em_fltr[n]]) # 7
     # 
-    @variable(m, n_fu_e[i=P, j=P2, l=L])
-    @variable(m, n_fu_e_d_[i=P, j=P2, l=L, k=Kn])
+    @variable(m, n_fu_e[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    @variable(m, n_fu_e_d_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                           n_filter[l, k] && nd_en_fltr[n]])
     # 
-    @variable(m, n_u_fu_e[i=P, j=P2, l=L])
-    @variable(m, n_u_fu_e_d_[i=P, j=P2, l=L, k=Kn])
+    @variable(m, n_u_fu_e[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    @variable(m, n_u_fu_e_d_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                             n_filter[l, k] && nd_en_fltr[n]])
 
     # process (extrinsic) disaggregated emissions, e.g. scope 0, etc.
     @variable(m, n_ep0[i=P, j=P2, l=L]) # 8
-    @variable(m, n_ep0_d_[i=P, j=P2, l=L, k=Kn]) # 9
+    @variable(m, n_ep0_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]]) # 9
 
     # scope 1, emitted
     @variable(m, n_ep1ge[i=P, j=P2, l=L], 
               lower_bound=0.0, upper_bound=p.n_ep1ge_bM[l]) # 10
-    @variable(m, n_ep1ge_d_[i=P, j=P2, l=L, k=Kn]) # 11
+    @variable(m, n_ep1ge_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]]) # 11
     # scope 1, captured
     @variable(m, n_ep1gce[i=P, j=P2, l=L]) # 12
-    @variable(m, n_ep1gce_d_[i=P, j=P2, l=L, k=Kn]) # 13
+    @variable(m, n_ep1gce_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]]) # 13
     # scope 1,  stored
     @variable(m, n_ep1gcs[i=P, j=P2, l=L]) # 14
-    @variable(m, n_ep1gcs_d_[i=P, j=P2, l=L, k=Kn]) # 15
+    @variable(m, n_ep1gcs_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]]) # 15
 
 
     # feedstocks
     @variable(m, n_fstck[i=P, j=P2, l=L, f=Nf])
-    @variable(m, n_fstck_d_[i=P, j=P2, l=L, k=Kn, f=Nf] >= 0.0)
+    @variable(m, n_fstck_d_[i=P, j=P2, l=L, k=Kn, f=Nf; n_filter[l, k]] >= 0.0)
 
     # operating and maintenance
-    @variable(m, n_conm_d_[i=P, j=P2, l=L, k=Kn] >= 0.0)  # 16
+    @variable(m, n_conm_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0.0)  # 16
     @variable(m, n_conm[i=P, j=P2, l=L], 
               lower_bound=0.0, upper_bound=p.n_conm_bM[l])  # 17
     
@@ -435,41 +476,41 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, o_conm_d_[i=P, j=P2, l=L] >= 0.0)
     @variable(m, o_tconm_d_[i=P, j=P2, l=L, (sT, sF)])
     #
-    @variable(m, o_cp[i=P, j=P2, l=L], lower_bound=0.0)
+    @variable(m, o_cp[i=P, j=P2, l=L, n=Nd], lower_bound=0.0)
               #, upper_bound=p.o_cp_bM)
     # only true
-    @variable(m, o_cp_d_[i=P, j=P2, l=L] >= 0) # disaggregated variable
+    @variable(m, o_cp_d_[i=P, j=P2, l=L, n=Nd] >= 0) # disaggregated variable
 
 
-    @variable(m, o_tcp_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0)
+    @variable(m, o_tcp_d_[i=P, j=P2, l=L, (sT, sF), n=Nd] >= 0.0)
     @variable(m, o_tpay_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0)
 
     # disaggregated retrofitted capacity
-    @variable(m, o_rcp_d_[i=P, j=P2, l=L, k=Kr, (sT, sF)] >= 0.0)
-    @variable(m, o_rcp[i=P, j=P2, l=L, k=Kr])
+    @variable(m, o_rcp_d_[i=P, j=P2, l=L, k=Kr, (sT, sF); r_filter[l, k]] >= 0.0)
+    @variable(m, o_rcp[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
 
     # only true
-    @variable(m, o_u_d_[i=P, j=P2, l=L] >= 0)
-    @variable(m, o_u[i=P, j=P2, l=L] >= 0, upper_bound=p.o_u_bM[l])
+    @variable(m, o_u_d_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]] >= 0)
+    @variable(m, o_u[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]] >= 0, upper_bound=p.o_u_ub[l, n])
     #
-    @variable(m, o_tu_d_[i=P, j=P2, l=L, (sT, sF)] >= 0)
+    @variable(m, o_tu_d_[i=P, j=P2, l=L, (sT, sF), n=Nd;
+                         nd_en_fltr[n]] >= 0)
     #
     # only true
-    @variable(m, o_ehf_d_[i=P, j=P2, l=L, f=Fu] >= 0)
-    @variable(m, o_ehf[i=P, j=P2, l=L, f=Fu] >= 0)
+    @variable(m, o_ehf_d_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]] >= 0)
+    @variable(m, o_ehf[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]] >= 0)
     #
-    @variable(m, o_tehf_d_[i=P, j=P2, l=L, f=Fu, (sT, sF)] >= 0)
+    @variable(m, o_tehf_d_[i=P, j=P2, l=L, f=Fu_r[l], (sT, sF), n=Nd;
+                           nd_en_fltr[n]] >= 0)
     #
     # only true
     @variable(m, o_ep0_d_[i=P, j=P2, l=L] >= 0)
     @variable(m, o_ep0[i=P, j=P2, l=L]) # em0
-
     @variable(m, o_tep0_d_[i=P, j=P2, l=L, (sT, sF)] >= 0)
     # only true
     @variable(m, o_ep1ge_d_[i=P, j=P2, l=L] >= 0)
     @variable(m, o_ep1ge[i=P, j=P2, l=L],
               lower_bound=0.0, upper_bound=p.o_ep1ge_bM[l]) # em1
-
     @variable(m, o_tep1ge_d_[i=P, j=P2, l=L, (sT, sF)] >= 0)
 
     #
@@ -495,7 +536,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     #
     # -> had to put a period here
-    oloanlastub = p.e_loan_ub .+ vec(p.r_loan_bM)
+    oloanlastub = p.e_loan_ub .+ vec(p.r_loan_ub)
     @variable(m, o_loan_last[i=P, l=L, (sT, sF)],
               lower_bound=0.0, upper_bound=oloanlastub[l])
 
@@ -506,8 +547,111 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # cost of storing carbon
     @variable(m, o_ep1gcs_cost[i=P, j=P2, l=L] >= 0.0)
     @variable(m, n_ep1gcs_cost[i=P, j=P2, l=L] >= 0.0)
-    ####################
 
+    ####################
+    Nd = s.Nd
+    Mt = s.Mt
+    Ln = s.Ln
+
+    node_mat = p.node_mat
+    skip_mb = p.skip_mb
+    links_list = p.links_list
+    input_mat = p.input_mat
+    output_mat = p.output_mat
+
+    function f_xin(m, i, j, l, k, n, c, input_mat; mode="r")
+        if c ∈ input_mat[n]
+            if mode == "r"
+                # r_x_in_d_
+                return m[:r_x_in_d_][i, j, l, k, n, c]
+            elseif mode == "n"
+                # n_x_in_d_
+                return m[:n_x_in_d_][i, j, l, k, n, c]
+            else
+                return "error"
+            end
+
+        else
+            return 0.0 
+        end
+    end
+
+    function f_xout(m, i, j, l, k, n, c, output_mat; mode="n")
+        if c ∈ output_mat[n]
+            if mode == "r"
+                # r_x_out_d_
+                return m[:r_x_out_d_][i, j, l, k, n, c]
+            elseif mode == "n"
+                # n_x_out_d_
+                return m[:n_x_out_d_][i, j, l, k, n, c]
+            else
+                return "error"
+            end
+        else
+            return 0.0 
+        end
+    end
+    ####################
+    @variable(m, r_x_in_d_[i=P, j=P2, l=L, k=Kr, n=Nd, c=Mt; 
+                           r_filter[l, k] && node_mat[n, c] && 
+                           c ∈ input_mat[n]] >= 0.0)
+    @variable(m, r_x_out_d_[i=P, j=P2, l=L, k=Kr, n=Nd, c=Mt;
+                            r_filter[l, k] && node_mat[n, c] &&
+                            c ∈ output_mat[n]] >= 0.0)
+    # surplus
+    @variable(m, r_x_o_s_d_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]] >= 0.0)
+    
+    #
+    @variable(m, r_x_in[i=P, j=P2, l=L, n=Nd, c=Mt;
+                        node_mat[n, c] && c ∈ input_mat[n]] >= 0.0)
+    @variable(m, r_x_out[i=P, j=P2, l=L, n=Nd, c=Mt; 
+                         node_mat[n, c] && c ∈ output_mat[n]] >= 0.0)
+    #
+    @variable(m, o_x_in[i=P, j=P2, l=L, n=Nd, c=Mt;
+                        node_mat[n, c] && c ∈ input_mat[n]] >= 0.0)
+    @variable(m, o_x_in_d_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                           node_mat[n, c] && c ∈ input_mat[n]] >= 0.0)
+    @variable(m, o_tx_in_d_[i=P, j=P2, l=L, n=Nd, c=Mt, (sT, sF);
+                            node_mat[n, c] && c ∈ input_mat[n]] >= 0.0)
+    #
+    @variable(m, o_x_out[i=P, j=P2, l=L, n=Nd, c=Mt;
+                        node_mat[n, c] && c ∈ output_mat[n]] >= 0.0)
+    @variable(m, o_x_out_d_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                           node_mat[n, c] && c ∈ output_mat[n]] >= 0.0)
+    @variable(m, o_tx_out_d_[i=P, j=P2, l=L, n=Nd, c=Mt, (sT, sF);
+                            node_mat[n, c] && c ∈ output_mat[n]] >= 0.0)
+    #
+
+    #
+    @variable(m, n_x_in_d_[i=P, j=P2, l=L, k=Kn, n=Nd, c=Mt; 
+                           n_filter[l, k] && node_mat[n, c] && 
+                           c ∈ input_mat[n]] >= 0.0)
+    @variable(m, n_x_out_d_[i=P, j=P2, l=L, k=Kn, n=Nd, c=Mt;
+                            n_filter[l, k] && node_mat[n, c] && 
+                            c ∈ output_mat[n]] >= 0.0)
+    #
+    # surplus
+    @variable(m, n_x_o_s_d_[i=P, j=P2, l=L, k=Kn, n=Nd; n_filter[l, k]] >= 0.0)
+
+    @variable(m, n_x_in[i=P, j=P2, l=L, n=Nd, c=Mt; 
+                        node_mat[n, c] && c ∈ input_mat[n]] >= 0.0)
+    @variable(m, n_x_out[i=P, j=P2, l=L, n=Nd, c=Mt;
+                         node_mat[n, c] && c ∈ output_mat[n]] >= 0.0)
+    #
+    @variable(m, r_ups_e_mt_in_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]] >= 0.0)
+    @variable(m, r_ups_e_mt_in[i=P, j=P2, l=L] >= 0.0)
+    
+    @variable(m, o_ups_e_mt_in_d_[i=P, j=P2, l=L])
+    @variable(m, o_ups_e_mt_in[i=P, j=P2, l=L])
+    @variable(m, o_tups_e_mt_in_d_[i=P, j=P2, l=L, (sT, sF)] >= 0)
+
+    @variable(m, n_ups_e_mt_in_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0.0)
+    @variable(m, n_ups_e_mt_in[i=P, j=P2, l=L] >= 0.0)
+
+    @variable(m, o_x_in_cost[i=P, j=P2, l=L]) 
+    @variable(m, n_x_in_cost[i=P, j=P2, l=L]) 
+    ####################
+    
     # 76 
     # 76 #######################################################################
     ##
@@ -534,27 +678,28 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     #
     @constraint(m, r_logic_budget_s[i=P, j=P2, l=L;
                                     (i,j) != (fP,fP2)], # only one mode
-                sum(y_r[i, j, l, k] for k in Kr if k > fKr) <= 1
+                sum(y_r[i, j, l, k] for k in Kr if (k > fKr && r_filter[l, k]))
+                <= 1
                )
     #
     @constraint(m, r_logic_tier_1_0m_e_[i=P, j=P2, l=L, k=Kr; 
-                                      k>fKr], # either 0 or >0 
+                                        (k>fKr && r_filter[l, k])], 
                 1 >= y_r[i, j, l, k] + y_r[i, j, l, fKr]
                )
     #
     @constraint(m, r_logic_budget_y_i_[i=P, j=P2, l=L, k=Kr; 
-                                       k>fKr && j<n_subperiods],
+                                       k>fKr && j<n_subperiods && r_filter[l, k]],
                 y_r[i, j+1, l, k] >= y_r[i, j, l, k]
                )
 
     @constraint(m, r_logic_onoff_1_y_i_[i=P, j=P2, l=L, k=Kr;
-                                        j<n_subperiods],
+                                        j<n_subperiods && r_filter[l, k]],
                 y_o[i, j, l] + 1 - y_r[i, j, l, k] 
                 + y_r[i, j+1, l, k] >= 1
                )
 
     @constraint(m, r_logic_onoff_2_y_i_[i=P, j=P2, l=L, k=Kr;
-                                        j<n_subperiods],
+                                        j<n_subperiods && r_filter[l, k]],
                 y_o[i, j, l] + 1 - y_r[i, j+1, l, k] 
                 + y_r[i, j, l, k] >= 1
                )
@@ -568,6 +713,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # d082923
     # -> expansion
     # p.e_C[l], the capacity per unit of allocation
+    # we need a single binary variable for each plant.
     @constraint(m, exp_d0_e_[i=P, j=P2, l=L], # only 0 counts
                 e_c_d_[i, j, l, sT] == p.e_C[l] * x_d_[i, j, l, sT]
                )
@@ -593,7 +739,8 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # -> expansion cost (loan)
     # p.e_loanFact
     @constraint(m, e_l_d0_e_[i=P, j=P2, l=L], # only zero counts
-                e_l_d_[i, j, l, sT] == p.e_loanFact[l] * e_c_d_[i, j, l, sT]
+                e_l_d_[i, j, l, sT] == 
+                p.e_loanFact[l] * e_c_d_[i, j, l, sT]
                )
     #@constraint(m, e_l_d1_e_[i=P, j=P2, l=L], # only zero counts
     #            e_l_d_[i, j, l, 1] == 0.0 
@@ -726,143 +873,173 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # -> capacity.
     # p.Kr (capacity factor, e.g. prod in retrofit r / base prod)
     # viz. cap_mod = factor * cap_base
-    @constraint(m, r_cp_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_cp_d_[i, j, l, k] == p.r_c_C[l, k] * r_cpb_d_[i, j, l, k] 
-                + p.r_rhs_C[l, k] * y_r[i, j, l, k]
+    @constraint(m, r_cp_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]],
+                r_cp_d_[i, j, l, k, n]  <= 
+                r_cpb_d_[i, j, l, k] * p.r_Kkey_j[n, k]
+               )
+    # at least 50% (for the key node)
+    @constraint(m, r_cp_ub_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_cpb_d_[i, j, l, k] * p.min_cpr[l]
+                <= r_cp_d_[i, j, l, k, key_node]
                )
     # r_cp_ub, retrofit capacity
-    @constraint(m, r_cp_d_m_e_[i=P, j=P2, l=L, k=Kr],
-                r_cp_d_[i, j, l, k] <= p.r_cp_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_cp_lb_i_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]],
+                r_cp_d_[i, j, l, k, n] <= p.r_cp_ub[l, n] * y_r[i, j, l, k]
                )
+    @constraint(m, r_cp_s_e_[i=P, j=P2, l=L, n=Nd],
+                r_cp[i, j, l, n] == 
+                sum(r_cp_d_[i, j, l, k, n] for k in Kr if r_filter[l, k])
+               )
+    @constraint(m, r_cp_x_e_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]],
+                r_cp_d_[i, j, l, k, n] == 
+                r_x_out_d_[i, j, l, k, n, ckey[n]] + r_x_o_s_d_[i, j, l, k, n]
+               )
+    #
     # cpb_ub, base capacity
-    @constraint(m, r_cpb_d_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_cpb_d_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_cpb_d_[i, j, l, k] <= p.r_cpb_ub[l] * y_r[i, j, l, k]
                )
-    @constraint(m, r_cp_s_e_[i=P, j=P2, l=L],
-                r_cp[i, j, l] == sum(r_cp_d_[i, j, l, k] for k in Kr)
-               )
     @constraint(m, r_cpb_s_e_[i=P, j=P2, l=L],
-                cpb[i, j, l] == sum(r_cpb_d_[i, j, l, k] for k in Kr)
+                cpb[i, j, l] == 
+                sum(r_cpb_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
     # -> heating requirement.
     # p.Hm (heating factor, i.e. heat / product), scaled by subperiod
-    @constraint(m, r_eh_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_eh_d_[i, j, l, k] == 
-                ((1-p.r_c_Helec[l, k])*p.r_c_Hfac[l, k])*
-                (p.r_c_H[l, k] * r_cp_d_[i, j, l, k]
-                 +p.r_rhs_H[l, k] * y_r[i, j, l, k])
+    @constraint(m, r_eh_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                             r_filter[l, k] && nd_en_fltr[n]],
+                r_eh_d_[i, j, l, k, n] == 
+                p.r_c_H[l, k, n] * r_cp_d_[i, j, l, k, n] + 
+                p.r_rhs_H[l, k, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_eh_d_m_i_[i=P, j=P2, l=L, k=Kr],
-                r_eh_d_[i, j, l, k] <= p.r_eh_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_eh_d_m_i_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                               r_filter[l, k] && nd_en_fltr[n]],
+                r_eh_d_[i, j, l, k, n] <= p.r_eh_ub[l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_eh_s_e_[i=P, j=P2, l=L],
-                r_eh[i, j, l] == sum(r_eh_d_[i, j, l, k] for k in Kr)
+    @constraint(m, r_eh_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                r_eh[i, j, l, n] == 
+                sum(r_eh_d_[i, j, l, k, n] for k in Kr if r_filter[l, k])
                )
     # d082923
     # -> fuel required for heat.
     # p.r_c_F in [0,1], (i.e. a fraction, heat by fuel /tot heat)
-    @constraint(m, r_ehf_d_e_[i=P, j=P2, l=L, k=Kr, f=Fu],
-                r_ehf_d_[i, j, l, k, f] ==
-                p.r_c_F[l, f, k] * r_eh_d_[i, j, l, k] 
-                + p.r_rhs_F[l, f, k] * y_r[i, j, l, k]
+    @constraint(m, r_ehf_d_e_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd; 
+                              r_filter[l, k] && nd_en_fltr[n]],
+                r_ehf_d_[i, j, l, k, f, n] == 
+                p.r_c_F[f, l, k, n] * r_eh_d_[i, j, l, k, n] + 
+                p.r_rhs_F[f, l, k, n] * y_r[i, j, l, k]
                )
     # r_ehf_ub
-    @constraint(m, r_ehf_m_i_[i=P, j=P2, l=L, k=Kr, f=Fu],
-                r_ehf_d_[i, j, l, k, f] <= p.r_ehf_ub[l, f] * y_r[i, j, l, k]
+    @constraint(m, r_ehf_m_i_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l],
+                              n=Nd; r_filter[l, k] && nd_en_fltr[n]],
+                r_ehf_d_[i, j, l, k, f, n] <= p.r_ehf_ub[f, l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_ehf_s_e_[i=P, j=P2, l=L, f=Fu],
-                r_ehf[i, j, l, f] == sum(r_ehf_d_[i, j, l, k, f] for k in Kr)
+    @constraint(m, r_ehf_s_e_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                r_ehf[i, j, l, f, n] == 
+                sum(r_ehf_d_[i, j, l, k, f, n] for k in Kr if r_filter[l, k])
                )
 
     # -> electricity requirement
     # r_u and m_ud_, p.Um & p.UmRhs, scaled by subperiod
-    @constraint(m, r_u_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_u_d_[i, j, l, k] == 
-                ((1-p.r_c_UonSite[i, j, l, k])*p.r_c_Ufac[l, k])*
-                (p.r_c_U[l, k] * r_cp_d_[i, j, l, k] 
-                 + p.r_rhs_U[l,k]*y_r[i,j,l,k]) +
-                # added viz. electrification (r_c_Helec: the h->e factor)
-                (p.r_c_Helec[l, k]*p.r_c_Hfac[l, k])* 
-                (p.r_c_H[l, k] * r_cp_d_[i, j, l, k] 
-                 + p.r_rhs_H[l, k] * y_r[i, j, l, k])
+    @constraint(m, r_u_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                            r_filter[l, k] && nd_en_fltr[n]],
+                r_u_d_[i, j, l, k, n] == 
+                (1-p.r_c_UonSite[i, j, l, k, n]) * (p.r_c_U[l, k, n] * r_cp_d_[i, j, l, k, n] + p.r_rhs_U[l, k, n] * y_r[i,j,l,k])
                )
 
     # r_u_ub[l] (big-M)
-    @constraint(m, r_u_i_[i=P, j=P2, l=L, k=Kr],
-                r_u_d_[i, j, l, k] <= p.r_u_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_u_i_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                          r_filter[l, k] && nd_en_fltr[n]],
+                r_u_d_[i, j, l, k, n] <= p.r_u_ub[l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_u_s_e_[i=P, j=P2, l=L],
-                r_u[i, j, l] == sum(r_u_d_[i, j, l, k] for k in Kr)
+    @constraint(m, r_u_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                r_u[i, j, l, n] == 
+                sum(r_u_d_[i, j, l, k, n] for k in Kr if r_filter[l, k])
                )
 
     # -> electricity on-site generation, scaled by subperiod
-    @constraint(m, r_u_onsite_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_u_onsite_d_[i, j, l, k] == 
-                (p.r_c_UonSite[i, j, l, k]* p.r_c_Ufac[l, k])*
-                (p.r_c_U[l, k] * r_cp_d_[i, j, l, k] 
-                 + p.r_rhs_U[l,k]*y_r[i,j,l,k])
+    @constraint(m, r_u_onsite_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                                   r_filter[l, k] && nd_en_fltr[n]],
+                r_u_onsite_d_[i, j, l, k, n] == 
+                (p.r_c_UonSite[i, j, l, k, n]) * (p.r_c_U[l, k, n] * r_cp_d_[i, j, l, k, n] + p.r_rhs_U[l,k,n] * y_r[i,j,l,k])
                )
     # r_u_ub[l] (big-M)
-    @constraint(m, r_u_onsite_i_[i=P, j=P2, l=L, k=Kr],
-                r_u_onsite_d_[i, j, l, k] <= p.r_u_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_u_onsite_i_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                                 r_filter[l, k] && nd_en_fltr[n]],
+                r_u_onsite_d_[i, j, l, k, n] <= p.r_u_ub[l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_u_onsite_s_e_[i=P, j=P2, l=L],
-                r_u_onsite[i, j, l] == 
-                sum(r_u_onsite_d_[i, j, l, k] for k in Kr)
+    @constraint(m, r_u_onsite_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                r_u_onsite[i, j, l, n] == 
+                sum(r_u_onsite_d_[i, j, l, k, n] for k in Kr if r_filter[l, k])
                )
 
     # fuel from electricity generation
-    @constraint(m, r_u_ehf_e_[i=P, j=P2, l=L, k=Kr, f=Fu],
-                r_u_ehf_d_[i, j, l, k, f] == 
-                p.r_c_Hr[l, f, k]*p.r_c_Fgenf[l, f, k]*r_u_onsite_d_[i, j, l, k] 
+    @constraint(m, r_u_ehf_e_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd;
+                              r_filter[l, k] && nd_en_fltr[n]],
+                r_u_ehf_d_[i, j, l, k, f, n] == 
+                p.r_c_Hr[f, l, k, n] * p.r_c_Fgenf[f, l, k, n] * r_u_onsite_d_[i, j, l, k, n] 
                )
 
-    @constraint(m, r_u_ehf_i_[i=P, j=P2, l=L, k=Kr, f=Fu],
-                r_u_ehf_d_[i, j, l, k, f] <= p.r_u_ehf_ub[l, f] * y_r[i, j, l, k]
+    @constraint(m, r_u_ehf_i_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd;
+                              r_filter[l, k] && nd_en_fltr[n]],
+                r_u_ehf_d_[i, j, l, k, f, n] <= p.r_u_ehf_ub[f, l, n] * y_r[i, j, l, k]
                )
 
-    @constraint(m, r_u_ehf_s_e_[i=P, j=P2, l=L, k=Kr, f=Fu],
-                r_u_ehf[i, j, l, f] == 
-                sum(r_u_ehf_d_[i, j, l, k, f] for k in Kr)
+    @constraint(m, r_u_ehf_s_e_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd;
+                                r_filter[l, k] && nd_en_fltr[n]],
+                r_u_ehf[i, j, l, f, n] == 
+                sum(r_u_ehf_d_[i, j, l, k, f, n] for k in Kr if r_filter[l, k])
                )
 
 
     # -> process (intrinsic) emissions
-    # r_cp_e, r_cp_e_d_. p.Cp & p.CpRhs, scaled! by subperiod
-    @constraint(m, r_cp_e_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_cp_e_d_[i, j, l, k] == 
-                (p.r_c_cp_e[l, k] * r_cp_d_[i, j, l, k]
-                + p.r_rhs_cp_e[l, k] * y_r[i, j, l, k])
+    # r_cpe, r_cpe_d_ p.Cp & p.CpRhs, scaled! by subperiod
+    @constraint(m, r_cpe_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                              r_filter[l, k] && nd_em_fltr[n]],
+                r_cpe_d_[i, j, l, k, n] == 
+                p.r_c_cpe[l, k, n] * r_cp_d_[i, j, l, k, n] + 
+                p.r_rhs_cpe[l, k, n] * y_r[i, j, l, k]
                )
-    # r_cp_e_bM
-    @constraint(m, r_cp_e_m_i_[i=P, j=P2, l=L, k=Kr],
-                r_cp_e_d_[i, j, l, k] <= p.r_cp_e_ub[l] * y_r[i, j, l, k]
+    # r_cpe_bM
+    @constraint(m, r_cpe_m_i_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                              r_filter[l, k] && nd_em_fltr[n]],
+                r_cpe_d_[i, j, l, k, n] <= p.r_cpe_ub[l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_cp_e_s_e_[i=P, j=P2, l=L],
-                r_cp_e[i, j, l] == sum(r_cp_e_d_[i, j, l, k] for k in Kr))
+    @constraint(m, r_cpe_s_e_[i=P, j=P2, l=L, n=Nd; nd_em_fltr[n]],
+                r_cpe[i, j, l, n] == 
+                sum(r_cpe_d_[i, j, l, k, n] for k in Kr if r_filter[l, k]))
     
 
     ##########
-    @constraint(m, r_fu_e_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_fu_e_d_[i, j, l, k] == 
-                sum(p.r_c_Fe[f, k] * r_ehf_d_[i, j, l, k, f] for f in Fu) 
+    @constraint(m, r_fu_e_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                               r_filter[l, k] && nd_en_fltr[n]
+                              ],
+                r_fu_e_d_[i, j, l, k, n] == 
+                sum(p.r_c_Fe[f, l, k, n] * r_ehf_d_[i, j, l, k, f, n] for f in Fu_r[l]) 
                )
-    @constraint(m, r_fu_e_m_i_[i=P, j=P2, l=L, k=Kr],
-                r_fu_e_d_[i, j, l, k] <= p.r_fu_e_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_fu_e_m_i_[i=P, j=P2, l=L, k=Kr, n=Nd; 
+                               r_filter[l, k] && nd_en_fltr[n]
+                              ],
+                r_fu_e_d_[i, j, l, k, n] <= p.r_fu_e_ub[l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_fu_e_s_e_[i=P, j=P2, l=L],
-                r_fu_e[i, j, l] == sum(r_fu_e_d_[i, j, l, k] for k in Kr)
+    @constraint(m, r_fu_e_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                r_fu_e[i, j, l, n] == 
+                sum(r_fu_e_d_[i, j, l, k, n] for k in Kr if r_filter[l, k])
                )
     ##########
-    @constraint(m, r_u_fu_e_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_u_fu_e_d_[i, j, l, k] == 
-                sum(p.r_c_Fe[f, k] * r_u_ehf_d_[i, j, l, k, f] for f in Fu) 
+    @constraint(m, r_u_fu_e_d_e_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                                 r_filter[l, k] && nd_en_fltr[n]
+                                ],
+                r_u_fu_e_d_[i, j, l, k, n] == 
+                sum(p.r_c_Fe[f, l, k, n] * r_u_ehf_d_[i, j, l, k, f, n] for f in Fu_r[l]) 
                )
-    @constraint(m, r_u_fu_e_d_m_i_[i=P, j=P2, l=L, k=Kr],
-                r_u_fu_e_d_[i, j, l, k] <= p.r_u_fu_e_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_u_fu_e_d_m_i_[i=P, j=P2, l=L, k=Kr, n=Nd;
+                                   r_filter[l, k] && nd_en_fltr[n]
+                                  ],
+                r_u_fu_e_d_[i, j, l, k, n] <= p.r_u_fu_e_ub[l, n] * y_r[i, j, l, k]
                )
-    @constraint(m, r_u_fu_e_s_e_[i=P, j=P2, l=L],
-                r_u_fu_e[i, j, l] == sum(r_u_fu_e_d_[i, j, l, k] for k in Kr)
+    @constraint(m, r_u_fu_e_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                r_u_fu_e[i, j, l, n] == 
+                sum(r_u_fu_e_d_[i, j, l, k, n] for k in Kr if r_filter[l, k])
                )
 
     ##########
@@ -875,63 +1052,111 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     # -> scope 0 emission
     # c_Fe (fuel emission factor) r_Hr (heat rate)
-    @constraint(m, r_ep0_d_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep0_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep0_d_[i, j, l, k] == 
                 # fuel
-                r_fu_e_d_[i, j, l, k]
+                sum(r_fu_e_d_[i, j, l, k, n] for n in Nd if nd_en_fltr[n]) + 
                 # process
-                + r_cp_e_d_[i, j, l, k]
+                sum(r_cpe_d_[i, j, l, k, n] for n in Nd if nd_em_fltr[n]) + 
                 # in-site electricity
-                + r_u_fu_e_d_[i, j, l, k]
+                sum(r_u_fu_e_d_[i, j, l, k, n] for n in Nd if nd_en_fltr[n])
                )
     # r_ep0_ub[l]
-    @constraint(m, r_ep0_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep0_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep0_d_[i, j, l, k] <= p.r_ep0_ub[l] * y_r[i, j, l, k]
                )
     @constraint(m, r_ep0_s_e_[i=P, j=P2, l=L],
-                r_ep0[i, j, l] == sum(r_ep0_d_[i, j, l, k] for k in Kr)
+                r_ep0[i, j, l] == 
+                sum(r_ep0_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
     # -> scope 1 emitted
     # p.r_chi
-    @constraint(m, r_ep1ge_d_e_[i=P, j=P2, l=L, k=Kr],
-                r_ep1ge_d_[i, j, l, k] == (1.0 - p.r_chi[l, k]) * r_ep0_d_[i, j, l, k]
+    @constraint(m, r_ep1ge_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_ep1ge_d_[i, j, l, k] == 
+                (1.0 - p.r_chi[l, k]) * r_ep0_d_[i, j, l, k]
                )
     # r_ep1ge_ub[l]
-    @constraint(m, r_ep1ge_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep1ge_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep1ge_d_[i, j, l, k] <= p.r_ep1ge_ub[l] * y_r[i, j, l, k]
                )
     @constraint(m, r_ep1ge_s_e_[i=P, j=P2, l=L],
-                r_ep1ge[i, j, l] == sum(r_ep1ge_d_[i, j, l, k] for k in Kr)
+                r_ep1ge[i, j, l] == 
+                sum(r_ep1ge_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
     # -> scope 1 captured
     # p.r_sigma
-    @constraint(m, r_ep1gce_d_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep1gce_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep1gce_d_[i, j, l, k] == 
                 p.r_chi[l, k] * (1 - p.r_sigma[l, k]) * r_ep0_d_[i, j, l, k]
                )
-    @constraint(m, r_ep1gce_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep1gce_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep1gce_d_[i, j, l, k] <= p.r_ep1gce_ub[l] * y_r[i, j, l, k]
                )
     @constraint(m, r_ep1gce_s_e_[i=P, j=P2, l=L],
-                r_ep1gce[i, j, l] == sum(r_ep1gce_d_[i, j, l, k] for k in Kr)
+                r_ep1gce[i, j, l] == 
+                sum(r_ep1gce_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
     # -> scope 1 stored
     # p.sigma ?
-    @constraint(m, r_ep1gcs_d_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep1gcs_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep1gcs_d_[i, j, l, k] ==
                 p.r_chi[l, k] * p.r_sigma[l, k] * r_ep0_d_[i, j, l, k]
                )
     # ep1gcsm_ub
-    @constraint(m, r_ep1gcs_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ep1gcs_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ep1gcs_d_[i, j, l, k] <= p.r_ep1gcs_ub[l] * y_r[i, j, l, k]
                )
 
     @constraint(m, r_ep1gcs_s_e_[i=P, j=P2, l=L],
-                r_ep1gcs[i, j, l] == sum(r_ep1gcs_d_[i, j, l, k] for k in Kr)
+                r_ep1gcs[i, j, l] == 
+                sum(r_ep1gcs_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
+    
+    # -> upstream emission from input materials
+    @constraint(m, r_ups_e_mt_in_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_ups_e_mt_in_d_[i, j, l, k] == 
+                sum(
+                    sum(p.r_c_upsein_rate[l, c] * r_x_in_d_[i, j, l, k, n, c] for
+                        c in Mt if node_mat[n, c] && c ∈ input_mat[n]
+                       )
+                    for n in Nd) 
+               )
+    # p.r_ups_e_mt_in_ub
+    @constraint(m, r_ups_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_ups_e_mt_in_d_[i, j, l, k] <= p.r_ups_e_mt_in_ub[l] * y_r[i, j, l, k]
+               )
+    @constraint(m, r_ups_e_mt_in_s_e_[i=P, j=P2, l=L],
+                r_ups_e_mt_in[i, j, l] == sum(r_ups_e_mt_in_d_[i, j, l, k] for k in Kr if r_filter[l, k])
+               )
+
+    # 1
+    @constraint(m, o_tups_e_mt_in_e_[i=P, j=P2, l=L],
+                r_ups_e_mt_in[i, j, l] == 
+                o_tups_e_mt_in_d_[i, j, l, sT] +
+                o_tups_e_mt_in_d_[i, j, l, sF]
+               )
+    # 2
+    @constraint(m, o_tups_e_mt_in_m1_i_[i=P, j=P2, l=L],
+                o_tups_e_mt_in_d_[i, j, l, sT] <=
+                p.o_ups_e_mt_in_ub[l] * y_o[i, j, l]
+               )
+    # 3
+    @constraint(m, o_tups_e_mt_in_m0_i_[i=P, j=P2, l=L],
+                o_tups_e_mt_in_d_[i, j, l, sF] <=
+                p.o_ups_e_mt_in_ub[l] * (1 - y_o[i, j, l])
+               )
+    # 4
+    @constraint(m, o_ups_e_mt_d_e_[i=P, j=P2, l=L],
+                o_ups_e_mt_in_d_[i, j, l] == o_tups_e_mt_in_d_[i, j, l, sT])
+    # 5
+    @constraint(m, o_ups_e_mt_d_m_i_[i=P, j=P2, l=L], 
+                o_ups_e_mt_in_d_[i, j, l] <= p.o_ups_e_mt_in_ub[l] * y_o[i, j, l])
+    # 6
+    @constraint(m, o_ups_e_mt_d_s_e_[i=P, j=P2, l=L], 
+                o_ups_e_mt_in[i, j, l] == o_ups_e_mt_in_d_[i, j, l])
 
     # 76 
     # 76 #######################################################################
@@ -954,7 +1179,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # chi : carbon capture
     # sigma : carbon storage
     
-    # r_cp_e and r_cp_e_d_
+    # r_cpe and r_cpe_d_
     
     # ep_0 = (sum(hj*chj)+cp) * prod
     # ep_1ge = ep_0 * (1-chi)
@@ -968,16 +1193,17 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> operating and maintenance
     # p.m_Onm, usd / year
-    @constraint(m, r_conm_d_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_conm_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_conm_d_[i, j, l, k] == 
-                (p.r_c_Onm[l, k] * r_cp_d_[i, j, l, k]
-                + p.r_rhs_Onm[l, k] * y_r[i, j, l, k])
+                p.r_c_Onm[l, k] * r_cp_d_[i, j, l, k, key_node] + 
+                p.r_rhs_Onm[l, k] * y_r[i, j, l, k]
                )
-    @constraint(m, r_conm_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_conm_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_conm_d_[i, j, l, k] <= p.r_conm_ub[l] * y_r[i, j, l, k]
                )
     @constraint(m, r_conm_s_e_[i=P, j=P2, l=L],
-                r_conm[i, j, l] == sum(r_conm_d_[i, j, l, k] for k in Kr)
+                r_conm[i, j, l] == 
+                sum(r_conm_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
 
@@ -986,17 +1212,18 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> retrofit disagg LOAN added amount (ladd), p.r_loanFact
     #
-    @constraint(m, r_ec_s_e_[i=P, j=P2, l=L, k=Kr],
-                e_c[i, j, l] == sum(r_e_c_d_[i, j, l, k] for k in Kr)
+    @constraint(m, r_ec_s_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                e_c[i, j, l] == 
+                sum(r_e_c_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
-    @constraint(m, r_ec_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ec_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_e_c_d_[i, j, l, k] <= p.r_e_c_ub[l] * y_r[i, j, l, k]
                )
 
     # -> base loan
     #
-    @constraint(m, r_l0_d_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_l0_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_l0_d_[i, j, l, k] == 
                 p.r_loanFact[i, j, l, k] * p.c0[l] * y_r[i, j, l, k]
                )
@@ -1006,21 +1233,23 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     #           )
     #
     @constraint(m, r_l0_s_e_[i=P, j=P2, l=L],
-                r_l0[i, j, l] == sum(r_l0_d_[i, j, l, k] for k in Kr)
+                r_l0[i, j, l] == 
+                sum(r_l0_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
     # -> expansion loan
-    @constraint(m, r_le_d_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_le_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_le_d_[i, j, l, k] ==
                 p.r_loanFact[i, j, l, k] * r_e_c_d_[i, j, l, k]
                )
     ## 
-    @constraint(m, r_le_m_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_le_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_le_d_[i, j, l, k] <= p.r_le_ub[l, k] * y_r[i, j, l, k]
                )
     ##
     @constraint(m, r_le_s_e_[i=P, j=P2, l=L],
-                r_le[i, j, l] == sum(r_le_d_[i, j, l, k] for k in Kr)
+                r_le[i, j, l] == 
+                sum(r_le_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
     # 76 
@@ -1028,26 +1257,30 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> retrofit disagg base payment (associated with the payment)
     # in units of usd/year
-    @constraint(m, r_ann0_md_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ann0_md_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ann0_d_[i, j, l, k] == 
                 p.r_Ann[i, j, l, k] * r_l0_d_[i, j, l, k]
                ) # uses c0+expc
-    @constraint(m, r_ann_mm_i_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_ann_mm_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_ann0_d_[i, j, l, k] <= p.r_ann0_bM[l] * y_r[i, j, l, k]
                )
     @constraint(m, r_ann_s_e_[i=P, j=P2, l=L],
-                r_ann0[i, j, l] == sum(r_ann0_d_[i, j, l, k] for k in Kr)
+                r_ann0[i, j, l] == 
+                sum(r_ann0_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
     ## -> retrofit expansion payment
-    @constraint(m, r_anne_md_e_[i=P, j=P2, l=L, k=Kr],
+    @constraint(m, r_anne_md_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_anne_d_[i, j, l, k] == 
                 p.r_Ann[i, j, l, k] * r_le_d_[i, j, l, k]
                ) # uses c0+expc
-    @constraint(m, r_anne_mm_i_[i=P, j=P2, l=L, k=Kr],
+
+    @constraint(m, r_anne_mm_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
                 r_anne_d_[i, j, l, k] <= p.r_anne_bM[l] * y_r[i, j, l, k]
                )
+
     @constraint(m, r_anne_s_e_[i=P, j=P2, l=L],
-                r_anne[i, j, l] == sum(r_anne_d_[i, j, l, k] for k in Kr)
+                r_anne[i, j, l] == 
+                sum(r_anne_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
 
     # 76 
@@ -1131,11 +1364,11 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 r_loan[i, j, l] == r_loan_p[i, j, l] - r_loan_n[i, j, l]
                )
     @constraint(m, r_loan_p_m0_i_[i=P, j=P2, l=L],
-                r_loan_p[i, j, l] <= p.r_loan_bM[l] * (1 - r_yps[i, j, l])
+                r_loan_p[i, j, l] <= p.r_loan_ub[l] * (1 - r_yps[i, j, l])
                )
     # this equation might become a problem. 
     @constraint(m, r_loan_n_m0_i_[i=P, j=P2, l=L],
-                r_loan_n[i, j, l] <= p.r_loan_bM[l] * r_yps[i, j, l]
+                r_loan_n[i, j, l] <= p.r_loan_ub[l] * r_yps[i, j, l]
                )
     # payment
     @constraint(m, r_pay0_s_e_[i=P, j=P2, l=L],
@@ -1197,6 +1430,114 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 + r_l0add[i, j, l] * (1+p.interest)^(p.yr_subperiod-1) 
                 + r_leadd[i, j, l] * (1+p.interest)^(p.yr_subperiod-1) 
                 + r_leadde[i, j, l] * (1+p.interest)^(p.yr_subperiod-1) 
+               )
+    # 76 
+    # 76 #######################################################################
+    ##
+    # do this loop only for input materials
+    @constraint(m, r_mass_b_e_[i=P, j=P2, l=L, k=Kr, n=Nd, c=Mt; 
+                               r_filter[l, k] && node_mat[n, c] && !skip_mb[n, c]],
+                f_xin(m, i, j, l, k, n, c, input_mat; mode="r") 
+                - f_xout(m, i, j, l, k, n, c, output_mat; mode="r")
+                #+ sum(p.r_Kmb[n, c, c1, k] * r_x_out_d_[i, j, l, k, n, c1] for c1 in Mt
+                + (p.r_Kmb[n, c, ckey[n], k] * r_cp_d_[i, j, l, k, n]) == 0.0
+               )
+
+    # node_out, node_in, component
+    # links_list = [(1, 2, 2)]
+    @constraint(m, r_comp_link_e_[i=P, j=P2, l=L, lnk=Ln],
+                r_x_out[i, j, l, links_list[lnk][1], links_list[lnk][3]] 
+                == 
+                r_x_in[i, j, l, links_list[lnk][2], links_list[lnk][3]]
+               )
+    #
+    @constraint(m, r_x_in_m_i_[i=P, j=P2, l=L, k=Kr, n=Nd, c=Mt; 
+                               r_filter[l, k] && node_mat[n, c]
+                               && c ∈ input_mat[n]],
+                r_x_in_d_[i, j, l, k, n, c] <= 
+                p.r_x_in_ub[l, n, c] * y_r[i, j, l, k]
+               )
+    @constraint(m, r_x_in_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt; 
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                r_x_in[i, j, l, n, c] == 
+                sum(r_x_in_d_[i, j, l, k, n, c] for k in Kr if r_filter[l, k])
+               )
+    #
+    @constraint(m, r_x_out_m_i_[i=P, j=P2, l=L, k=Kr, n=Nd, c=Mt; 
+                                r_filter[l, k] && node_mat[n, c] && 
+                                c ∈ output_mat[n]],
+                r_x_out_d_[i, j, l, k, n, c] <= 
+                p.r_x_out_ub[l, n, c] * y_r[i, j, l, k]
+               )
+    @constraint(m, r_x_out_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt; 
+                                node_mat[n, c] && c ∈ output_mat[n]],
+                r_x_out[i, j, l, n, c] == 
+                sum(r_x_out_d_[i, j, l, k, n, c] for k in Kr if r_filter[l, k])
+               )
+    #
+    # o_x_in_d_ input (existing)
+    @constraint(m, o_tx_in_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                r_x_in[i, j, l, n, c] == 
+                o_tx_in_d_[i, j, l, n, c, sT] + o_tx_in_d_[i, j, l, n, c, sF]
+               )
+    @constraint(m, o_tx_in_m1_i_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                o_tx_in_d_[i, j, l, n, c, sT] <= 
+                p.o_x_in_ub[l, n, c] * y_o[i, j, l]
+               )
+    @constraint(m, o_tx_in_m0_i_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                o_tx_in_d_[i, j, l, n, c, sF] <= 
+                p.o_x_in_ub[l, n, c] * (1 - y_o[i, j, l])
+               )
+    @constraint(m, o_x_in_d_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                o_x_in_d_[i, j, l, n, c] == o_tx_in_d_[i, j, l, n, c, sT]
+               )
+    @constraint(m, o_x_in_m_i_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                o_x_in_d_[i, j, l, n, c] <= 
+                p.o_x_in_ub[l, n, c] * y_o[i, j, l]
+               )
+    @constraint(m, o_x_in_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                o_x_in[i, j, l, n, c] == o_x_in_d_[i, j, l, n, c]
+               )
+    # o_x_out_d_ output (existing)
+    # 1
+    @constraint(m, o_tx_out_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ output_mat[n]],
+                r_x_out[i, j, l, n, c] ==
+                o_tx_out_d_[i, j, l, n, c, sT] + o_tx_out_d_[i, j, l, n, c, sF]
+               )
+    # 2
+    @constraint(m, o_tx_out_m1_i_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ output_mat[n]],
+                o_tx_out_d_[i, j, l, n, c, sT] <=
+                p.o_x_out_ub[l, n, c] * y_o[i, j, l]
+               )
+    # 3
+    @constraint(m, o_tx_out_m0_i_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ output_mat[n]],
+                o_tx_out_d_[i, j, l, n, c, sF] <=
+                p.o_x_out_ub[l, n, c] * (1 - y_o[i, j, l])
+               )
+    # 4
+    @constraint(m, o_x_out_d_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ output_mat[n]],
+                o_x_out_d_[i, j, l, n, c] == o_tx_out_d_[i, j, l, n, c, sT]
+               )
+    # 5
+    @constraint(m, o_x_out_m_i_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ output_mat[n]],
+                o_x_out_d_[i, j, l, n, c] <=
+                p.o_x_out_ub[l, n, c] * y_o[i, j, l]
+               )
+    # 6
+    @constraint(m, o_x_out_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ output_mat[n]],
+                o_x_out[i, j, l, n, c] == o_x_out_d_[i, j, l, n, c]
                )
 
     # 76 
@@ -1287,8 +1628,6 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 r_conm[i, j, l] == 
                 o_tconm_d_[i, j, l, sT] + o_tconm_d_[i, j, l, sF]
                )
-
-
     # 76 
     # 76 #######################################################################
     ##
@@ -1297,33 +1636,51 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     #            n_c0[l] >= p.c0[l+1]
     #           )
     # -> new plant capacity disaggregation
-    @constraint(m, n_cp0_d_e_[i=P, j=P2, l=L],
-                n_cp_d_[i, j, l, fKn] == 0
+    @constraint(m, n_cp0_d_e_[i=P, j=P2, l=L, n=Nd],
+                n_cp_d_[i, j, l, fKn, n] == 0
                ) # how do we make this 0 at k=0?
-    @constraint(m, n_cp_d_e_[i=P, j=P2, l=L, k=Kn; k>fKn],
-                n_cp_d_[i, j, l, k] == n_c0_d_[i, j, l, k]
+    @constraint(m, n_cp_ub_i_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                              k>fKn && n_filter[l, k]],
+                n_cp_d_[i, j, l, k, n] <= 
+                n_c0_d_[i, j, l, k] * p.n_Kkey_j[n, k]
                )
+    @constraint(m, n_cp_lb_i_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                              k>fKn && n_filter[l, k]],
+                n_c0_d_[i, j, l, k] *  p.min_cpr[l]
+                <= n_cp_d_[i, j, l, k, key_node]
+               )
+
     #@constraint(m, n_c0_d0_i_[i=P, j=P2, l=L, k=Kn; k>0],
     #            n_c0_d_[i, j, l, k] >= p.c0[l+1] * y_n[i, j, l, k]
     #           )
 
-    @constraint(m, n_cp_m_i_[i=P, j=P2, l=L, k=Kn; k>fKn], # skip the 0-th
-                n_cp_d_[i, j, l, k] <= p.n_cp_bM[l] * y_n[i, j, l, k]
+    @constraint(m, n_cp_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                             k>fKn && n_filter[l, k]],
+                n_cp_d_[i, j, l, k, n] <= p.n_cp_bM[l, n] * y_n[i, j, l, k]
                )
 
-    @constraint(m, n_cap_add_d_lo_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_cap_add_d_lo_i_[i=P, j=P2, l=L, k=Kn; 
+                                     n_filter[l, k]],
                 n_c0_d_[i, j, l, k] >= p.n_c0_lo[l, k] * y_n[i, j, l, k]
                )
-    @constraint(m, n_cap_add_d_m_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_cap_add_d_m_i_[i=P, j=P2, l=L, k=Kn;
+                                    n_filter[l, k]],
                 n_c0_d_[i, j, l, k] <= p.n_c0_bM[l] * y_n[i, j, l, k]
                )
     #
-    @constraint(m, n_cp_s_e_[i=P, j=P2, l=L],
-                n_cp[i, j, l] == sum(n_cp_d_[i, j, l, k] for k in Kn)
+    @constraint(m, n_cp_s_e_[i=P, j=P2, l=L, n=Nd],
+                n_cp[i, j, l, n] == 
+                sum(n_cp_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
+               )
+    
+    @constraint(m, n_cp_x_e_[i=P, j=P2, l=L, k=Kn, n=Nd; n_filter[l, k]],
+                n_cp_d_[i, j, l, k, n] == 
+                n_x_out_d_[i, j, l, k, n, ckey[n]] + n_x_o_s_d_[i, j, l, k, n]
                )
 
     @constraint(m, n_c0_s_e_[i=P, j=P2, l=L],
-                n_c0[i, l] == sum(n_c0_d_[i, j, l, k] for k in Kn)
+                n_c0[i, l] == 
+                sum(n_c0_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
 
     # 76 
@@ -1331,26 +1688,28 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> base loan (proportional to the capacity)
     # measured in usd/year
-    @constraint(m, n_l_d0_e_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_l_d0_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_l_d_[i, j, l, k] == 
-                p.n_loanFact[l, k] * n_cp_d_[i, j, l, k]
+                p.n_loanFact[l, k] * n_c0_d_[i, j, l, k]
                ) # this should be 0 at 0th  
     # perhaps this should be n_c0_d_
-    @constraint(m, n_l_m_i0_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_l_m_i0_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_l_d_[i, j, l, k] <= p.n_l_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_l_s_[i=P, j=P2, l=L],
-                n_l[i, j, l] == sum(n_l_d_[i, j, l, k] for k in Kn)
+                n_l[i, j, l] == 
+                sum(n_l_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
     # -> annuity (how much we pay)
-    @constraint(m, n_ann_d0_e_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ann_d0_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ann_d_[i, j, l, k] == p.n_Ann[l, k] * n_l_d_[i, j, l, k]
                )
-    @constraint(m, n_ann_m_i0_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ann_m_i0_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ann_d_[i, j, l, k] <= p.n_ann_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_ann_s_[i=P, j=P2, l=L],
-                n_ann[i, j, l] == sum(n_ann_d_[i, j, l, k] for k in Kn)
+                n_ann[i, j, l] == 
+                sum(n_ann_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
     
     # 76 
@@ -1432,132 +1791,153 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # 76 
     # 76 #######################################################################
     ##
-    #n_c_Helec
     # -> heating requirement.
     # p.Hm (heating factor, i.e. heat / product), scaled!
-    @constraint(m, n_eh_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_eh_d_[i, j, l, k] ==
-                (
-                 (1-p.n_c_Helec[l, k])*p.n_c_Hfac[l, k]
-                )*(
-                   p.n_c_H[l, k] * n_cp_d_[i, j, l, k] 
-                   + p.n_rhs_H[l, k] * y_n[i, j, l, k]
-                  )
+    @constraint(m, n_eh_d_e_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                             n_filter[l, k] && nd_en_fltr[n]
+                            ],
+                n_eh_d_[i, j, l, k, n] ==
+                p.n_c_H[l, k, n] * n_cp_d_[i, j, l, k, n] + 
+                p.n_rhs_H[l, k, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_eh_d_m_i_[i=P, j=P2, l=L, k=Kn],
-                n_eh_d_[i, j, l, k] <= p.n_eh_bM[l]*y_n[i, j, l, k]
+    @constraint(m, n_eh_d_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                               n_filter[l, k] && nd_en_fltr[n]
+                              ],
+                n_eh_d_[i, j, l, k, n] <= p.n_eh_ub[l, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_eh_s_e_[i=P, j=P2, l=L],
-                n_eh[i, j, l] == sum(n_eh_d_[i, j, l, k] for k in Kn)
+    @constraint(m, n_eh_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                n_eh[i, j, l, n] == 
+                sum(n_eh_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
                )
     # -> fuel required for heat.
     # p.n_c_F in [0,1], (i.e. a fraction, heat by fuel /tot heat)
-    @constraint(m, n_ehf_d_e_[i=P, j=P2, l=L, k=Kn, f=Fu],
-                n_ehf_d_[i, j, l, k, f] ==
-                p.n_c_F[l, f, k] * n_eh_d_[i, j, l, k] 
-                + p.n_rhs_F[l, f, k] * y_n[i, j, l, k]
+    @constraint(m, n_ehf_d_e_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd;
+                              n_filter[l, k] && nd_en_fltr[n]
+                             ],
+                n_ehf_d_[i, j, l, k, f, n] ==
+                p.n_c_F[f, l, k, n] * n_eh_d_[i, j, l, k, n] + 
+                p.n_rhs_F[f, l, k, n] * y_n[i, j, l, k]
                )
-    # n_ehf_bM
-    @constraint(m, n_ehf_m_i_[i=P, j=P2, l=L, k=Kn, f=Fu],
-                n_ehf_d_[i, j, l, k, f] <= p.n_ehf_bM[l, f] * y_n[i, j, l, k]
+    # n_ehf_ub
+    @constraint(m, n_ehf_m_i_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd;
+                              n_filter[l, k] && nd_en_fltr[n] 
+                             ],
+                n_ehf_d_[i, j, l, k, f, n] <= p.n_ehf_ub[f, l, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_ehf_s_e_[i=P, j=P2, l=L, f=Fu],
-                n_ehf[i, j, l, f] == sum(n_ehf_d_[i, j, l, k, f] for k in Kn)
+    @constraint(m, n_ehf_s_e_[i=P, j=P2, l=L, f=Fu_n[l], n=Nd;
+                              nd_en_fltr[n]],
+                n_ehf[i, j, l, f, n] == 
+                sum(n_ehf_d_[i, j, l, k, f, n] for k in Kn if n_filter[l, k])
                )
 
     # -> electricity requirement
     # n_u and m_ud_, p.Um & p.UmRhs, scaled!
-    @constraint(m, n_u_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_u_d_[i, j, l, k] == 
-                (
-                 (1-p.n_c_UonSite[i,j,l,k])
-                 *p.n_c_Ufac[l,k]
-                )*(
-                   p.n_c_U[l, k] * n_cp_d_[i, j, l, k] 
-                   + p.n_rhs_U[l, k] * y_n[i, j, l, k]) +
-                # electrification
-                (p.n_c_Helec[l, k]*p.n_c_Hfac[l, k])*
-                (p.n_c_H[l, k]*n_cp_d_[i, j, l, k] 
-                 + p.n_rhs_H[l, k]*y_n[i, j, l, k]
-                )
+    @constraint(m, n_u_d_e_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                            n_filter[l, k] && nd_en_fltr[n]
+                           ],
+                n_u_d_[i, j, l, k, n] == 
+                (1-p.n_c_UonSite[i, j, l, k, n]) * (p.n_c_U[l, k, n] * n_cp_d_[i, j, l, k, n] + p.n_rhs_U[l, k, n] * y_n[i, j, l, k]) 
                )
-    # n_u_bM[l] (big-M)
-    @constraint(m, n_u_i_[i=P, j=P2, l=L, k=Kn],
-                n_u_d_[i, j, l, k] <= p.n_u_bM[l] * y_n[i, j, l, k]
+    # n_u_ub[l, n] (big-M)
+    @constraint(m, n_u_i_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                          n_filter[l, k] && nd_en_fltr[n]
+                         ],
+                n_u_d_[i, j, l, k, n] <= p.n_u_ub[l, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_u_s_e_[i=P, j=P2, l=L],
-                n_u[i, j, l] == sum(n_u_d_[i, j, l, k] for k in Kn)
+    @constraint(m, n_u_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                n_u[i, j, l, n] == 
+                sum(n_u_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
                )
     # -> electricity on-site 
     # n_u_onsite, n_c_Uonsite viz. the onsite fraction, scaled!
-    @constraint(m, n_u_onsite_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_u_onsite_d_[i, j, l, k] == 
-                (p.n_c_UonSite[i,j,l,k]*p.n_c_Ufac[l,k])*
-                (p.n_c_U[l, k] * n_cp_d_[i, j, l, k]
-                 +p.n_rhs_U[l, k] * y_n[i, j, l, k])
+    @constraint(m, n_u_onsite_d_e_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                                   n_filter[l, k] && nd_en_fltr[n]
+                                  ],
+                n_u_onsite_d_[i, j, l, k, n] == 
+                (p.n_c_UonSite[i, j, l, k, n]) * (p.n_c_U[l, k, n] * n_cp_d_[i, j, l, k, n] + p.n_rhs_U[l, k, n] * y_n[i, j, l, k])
                )
-    # n_u_bM[l] (big-M)
-    @constraint(m, n_u_onsite_i_[i=P, j=P2, l=L, k=Kn],
-                n_u_onsite_d_[i, j, l, k] <= p.n_u_bM[l] * y_n[i, j, l, k]
+    # n_u_ub[l, n] (big-M)
+    @constraint(m, n_u_onsite_i_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                                 n_filter[l, k] && nd_en_fltr[n]
+                                ],
+                n_u_onsite_d_[i, j, l, k, n] <= p.n_u_ub[l, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_u_onsite_s_e_[i=P, j=P2, l=L],
-                n_u_onsite[i, j, l] == 
-                sum(n_u_onsite_d_[i, j, l, k] for k in Kn)
+    @constraint(m, n_u_onsite_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                n_u_onsite[i, j, l, n] == 
+                sum(n_u_onsite_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
                )
 
     # fuel from electricity generation
-    @constraint(m, n_u_ehf_e_[i=P, j=P2, l=L, k=Kn, f=Fu],
-                n_u_ehf_d_[i, j, l, k, f] == 
+    @constraint(m, n_u_ehf_e_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd; 
+                              n_filter[l, k] && nd_en_fltr[n]
+                             ],
+                n_u_ehf_d_[i, j, l, k, f, n] == 
                 (
-                 p.n_c_Hr[l, f, k]*p.n_c_Fgenf[l, f, k]
-                 *n_u_onsite_d_[i, j, l, k]
+                 p.n_c_Hr[f, l, k, n]*p.n_c_Fgenf[f, l, k, n]
+                 *n_u_onsite_d_[i, j, l, k, n]
                 )
                )
 
-    @constraint(m, n_u_ehf_i_[i=P, j=P2, l=L, k=Kn, f=Fu],
-                n_u_ehf_d_[i, j, l, k, f] <= p.n_u_ehf_ub[l, f] * y_n[i, j, l, k]
+    @constraint(m, n_u_ehf_i_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd;
+                              n_filter[l, k] && nd_en_fltr[n]
+                             ],
+                n_u_ehf_d_[i, j, l, k, f, n] <= p.n_u_ehf_ub[f, l, n] * y_n[i, j, l, k]
                )
 
-    @constraint(m, n_u_ehf_s_e_[i=P, j=P2, l=L, k=Kn, f=Fu],
-                n_u_ehf[i, j, l, f] == 
-                sum(n_u_ehf_d_[i, j, l, k, f] for k in Kn)
+    @constraint(m, n_u_ehf_s_e_[i=P, j=P2, l=L, k=Kn, f=Fu_n[l], n=Nd; 
+                                n_filter[l, k] && nd_en_fltr[n]
+                               ],
+                n_u_ehf[i, j, l, f, n] == 
+                sum(n_u_ehf_d_[i, j, l, k, f, n] for k in Kn if n_filter[l, k])
                )
     
     # -> process (intrinsic) emissions
-    # n_cp_e, n_cp_e_d_. p.Cp & p.CpRhs, scaled!
-    @constraint(m, n_cp_e_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_cp_e_d_[i, j, l, k] == 
-                (p.n_c_cp_e[l, k] * n_cp_d_[i, j, l, k] 
-                                + p.n_rhs_cp_e[l, k] * y_n[i, j, l, k])
+    # n_cpe, n_cpe_d_. p.Cp & p.CpRhs, scaled!
+    @constraint(m, n_cpe_d_e_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                              n_filter[l, k] && nd_em_fltr[n]],
+                n_cpe_d_[i, j, l, k, n] == 
+                p.n_c_cpe[l, k, n] * n_cp_d_[i, j, l, k, n] + 
+                p.n_rhs_cpe[l, k, n] * y_n[i, j, l, k]
                )
-    # n_cp_e_ub
-    @constraint(m, n_cp_e_m_i_[i=P, j=P2, l=L, k=Kn],
-                n_cp_e_d_[i, j, l, k] <= p.n_cp_e_ub[l]*y_n[i, j, l, k]
+    # n_cpe_ub
+    @constraint(m, n_cpe_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                              n_filter[l, k] && nd_em_fltr[n]],
+                n_cpe_d_[i, j, l, k, n] <= p.n_cpe_ub[l, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_cp_e_s_e_[i=P, j=P2, l=L],
-                n_cp_e[i, j, l] == sum(n_cp_e_d_[i, j, l, k] for k in Kn)
-               )
-    ##########
-    @constraint(m, n_fu_e_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_fu_e_d_[i, j, l, k] == 
-                sum(p.n_c_Fe[f, k] * n_ehf_d_[i, j, l, k, f] for f in Fu) 
-               )
-    @constraint(m, n_fu_e_m_i_[i=P, j=P2, l=L, k=Kn],
-                n_fu_e_d_[i, j, l, k] <= p.n_fu_e_ub[l] * y_n[i, j, l, k]
-               )
-    @constraint(m, n_fu_e_s_e_[i=P, j=P2, l=L],
-                n_fu_e[i, j, l] == sum(n_fu_e_d_[i, j, l, k] for k in Kn)
+    @constraint(m, n_cpe_s_e_[i=P, j=P2, l=L, n=Nd; nd_em_fltr[n]],
+                n_cpe[i, j, l, n] == 
+                sum(n_cpe_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
                )
     ##########
-    @constraint(m, n_u_fu_e_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_u_fu_e_d_[i, j, l, k] == 
-                sum(p.n_c_Fe[f, k] * n_u_ehf_d_[i, j, l, k, f] for f in Fu) 
+    @constraint(m, n_fu_e_d_e_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                               n_filter[l, k] && nd_en_fltr[n]],
+                n_fu_e_d_[i, j, l, k, n] == 
+                sum(p.n_c_Fe[f, l, k, n] * n_ehf_d_[i, j, l, k, f, n] for f in Fu_n[l]) 
                )
-    @constraint(m, n_u_fu_e_d_m_i_[i=P, j=P2, l=L, k=Kn],
-                n_u_fu_e_d_[i, j, l, k] <= p.n_u_fu_e_ub[l] * y_n[i, j, l, k]
+    @constraint(m, n_fu_e_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                               n_filter[l, k] && nd_en_fltr[n]
+                              ],
+                n_fu_e_d_[i, j, l, k, n] <= p.n_fu_e_ub[l, n] * y_n[i, j, l, k]
                )
-    @constraint(m, n_u_fu_e_s_e_[i=P, j=P2, l=L],
-                n_u_fu_e[i, j, l] == sum(n_u_fu_e_d_[i, j, l, k] for k in Kn)
+    @constraint(m, n_fu_e_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                n_fu_e[i, j, l, n] == 
+                sum(n_fu_e_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
+               )
+    ##########
+    @constraint(m, n_u_fu_e_d_e_[i=P, j=P2, l=L, k=Kn, n=Nd; 
+                                 n_filter[l, k] && nd_en_fltr[n]
+                                ],
+                n_u_fu_e_d_[i, j, l, k, n] == 
+                sum(p.n_c_Fe[f, l, k, n] * n_u_ehf_d_[i, j, l, k, f, n] for f in Fu_n[l]) 
+               )
+    @constraint(m, n_u_fu_e_d_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd;
+                                   n_filter[l, k] && nd_en_fltr[n]
+                                  ],
+                n_u_fu_e_d_[i, j, l, k, n] <= p.n_u_fu_e_ub[l, n] * y_n[i, j, l, k]
+               )
+    @constraint(m, n_u_fu_e_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                n_u_fu_e[i, j, l, n] == 
+                sum(n_u_fu_e_d_[i, j, l, k, n] for k in Kn if n_filter[l, k])
                )
     ##########
 
@@ -1565,61 +1945,84 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     # -> scope 0 emission
     # c_Fe (fuel emission factor), n_Hr (heat rate)
-    @constraint(m, n_ep0_d_e_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep0_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep0_d_[i, j, l, k] == 
                 # fuel
-                n_fu_e_d_[i, j, l, k]
+                sum(n_fu_e_d_[i, j, l, k, n] for n in Nd if nd_en_fltr[n]) + 
                 # process
-                + n_cp_e_d_[i, j, l, k]
+                sum(n_cpe_d_[i, j, l, k, n] for n in Nd if nd_em_fltr[n]) + 
                 # in-site electricity
-                + n_u_fu_e_d_[i, j, l, k]
+                sum(n_u_fu_e_d_[i, j, l, k, n] for n in Nd if nd_en_fltr[n])
                )
     # n_ep0_bM
-    @constraint(m, n_ep0_m_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep0_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep0_d_[i, j, l, k] <= p.n_ep0_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_ep0_s_e_[i=P, j=P2, l=L],
-                n_ep0[i, j, l] == sum(n_ep0_d_[i, j, l, k] for k in Kn)
+                n_ep0[i, j, l] == 
+                sum(n_ep0_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
     # -> scope 1 emitted
     # p.n_chi
-    @constraint(m, n_ep1ge_d_e_[i=P, j=P2, l=L, k=Kn],
-                n_ep1ge_d_[i, j, l, k] == (1.0 - p.n_chi[l, k])*n_ep0_d_[i, j, l, k]
+    @constraint(m, n_ep1ge_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_ep1ge_d_[i, j, l, k] == 
+                (1.0 - p.n_chi[l, k])*n_ep0_d_[i, j, l, k]
                )
     # n_ep1ge_bM[l]
-    @constraint(m, n_ep1ge_m_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep1ge_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep1ge_d_[i, j, l, k] <= p.n_ep1ge_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_ep1ge_s_e_[i=P, j=P2, l=L],
-                n_ep1ge[i, j, l] == sum(n_ep1ge_d_[i, j, l, k] for k in Kn)
+                n_ep1ge[i, j, l] == 
+                sum(n_ep1ge_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
 
     # -> scope 1 captured
     # p.n_sigma
-    @constraint(m, n_ep1gce_d_e_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep1gce_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep1gce_d_[i, j, l, k] == 
                 p.n_chi[l, k] * (1 - p.n_sigma[l, k]) 
                 * n_ep0_d_[i, j, l, k]
                )
-    @constraint(m, n_ep1gce_m_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep1gce_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep1gce_d_[i, j, l, k] <= p.n_ep1gce_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_ep1gce_s_e_[i=P, j=P2, l=L],
-                n_ep1gce[i, j, l] == sum(n_ep1gce_d_[i, j, l, k] for k in Kn)
+                n_ep1gce[i, j, l] == 
+                sum(n_ep1gce_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
     # -> scope 1 stored
     # p.sigma ?
-    @constraint(m, n_ep1gcs_d_e_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep1gcs_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep1gcs_d_[i, j, l, k] ==
                 p.n_chi[l, k] * p.n_sigma[l, k] * n_ep0_d_[i, j, l, k]
                )
     # ep1gcsm_bM
-    @constraint(m, n_ep1gcs_m_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_ep1gcs_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_ep1gcs_d_[i, j, l, k] <= p.n_ep1gcs_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_ep1gcs_s_e_[i=P, j=P2, l=L],
-                n_ep1gcs[i, j, l] == sum(n_ep1gcs_d_[i, j, l, k] for k in Kn)
+                n_ep1gcs[i, j, l] == 
+                sum(n_ep1gcs_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
+
+    # -> upstream emission from input materials
+    @constraint(m, n_ups_e_mt_in_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_ups_e_mt_in_d_[i, j, l, k] == 
+                sum(
+                    sum(p.n_c_upsein_rate[l, c] * n_x_in_d_[i, j, l, k, n, c] for
+                        c in Mt if node_mat[n, c] && c ∈ input_mat[n]
+                       )
+                    for n in Nd)
+               )
+    # p.n_ups_e_mt_in_ub
+    @constraint(m, n_ups_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_ups_e_mt_in_d_[i, j, l, k] <= p.n_ups_e_mt_in_ub[l] * y_n[i, j, l, k]
+               )
+    @constraint(m, n_ups_e_mt_in_s_e_[i=P, j=P2, l=L],
+                n_ups_e_mt_in[i, j, l] == sum(n_ups_e_mt_in_d_[i, j, l, k] for k in Kn if n_filter[l, k])
+               )
+
     # 76 
     # 76 #######################################################################
     # feedstock constraint
@@ -1640,7 +2043,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # chi : carbon capture
     # sigma : carbon storage
     
-    # n_cp_e and n_cp_e_d_
+    # n_cpe and n_cpe_d_
     
     # ep_0 = (sum(hj*chj)+cp) * prod
     # ep_1ge = ep_0 * (1-chi)
@@ -1654,35 +2057,38 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> operating and maintenance
     # p.m_Onm by year
-    @constraint(m, n_conm_d_e_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_conm_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_conm_d_[i, j, l, k] == 
-                (p.n_c_Onm[l, k] * n_cp_d_[i, j, l, k]
+                (p.n_c_Onm[l, k] * n_cp_d_[i, j, l, k, key_node]
                 + p.n_rhs_Onm[l, k] * y_n[i, j, l, k])
                )
-    @constraint(m, n_conm_m_i_[i=P, j=P2, l=L, k=Kn],
+    @constraint(m, n_conm_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
                 n_conm_d_[i, j, l, k] <= p.n_conm_bM[l] * y_n[i, j, l, k]
                )
     @constraint(m, n_conm_s_e_[i=P, j=P2, l=L],
-                n_conm[i, j, l] == sum(n_conm_d_[i, j, l, k] for k in Kn)
+                n_conm[i, j, l] == 
+                sum(n_conm_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
 
     # 76 
     # 76 #######################################################################
     ##
 
-        # -> new alloc logic
+    # -> new alloc logic
     @constraint(m, n_logic_0_y_i_[i=P, j=P2, l=L; j<n_subperiods],
                 y_n[i, j+1, l, fKn] <= y_n[i, j, l, fKn]  # only build in the future
                )
-    @constraint(m, n_logic_1_y_i_[i=P, j=P2, l=L, k=Kn; j<n_subperiods && k> fKn],
+    @constraint(m, n_logic_1_y_i_[i=P, j=P2, l=L, k=Kn; 
+                                  j<n_subperiods && k>fKn && n_filter[l, k]],
                 y_n[i, j+1, l, k] >= y_n[i, j, l, k]  # only build in the future
                )
     @constraint(m, n_logic_s_e[i=P, j=P2, l=L], 
-                sum(y_n[i, j, l, k] for k in Kn) == 1
+                sum(y_n[i, j, l, k] for k in Kn if n_filter[l, k]) == 1
                )
     # for all points besides the initial one
     #@constraint(m, n_logic_2[i=P, j=P2, l=L, k=Kn; k>fKn && i>fP && j>fP2],
-    @constraint(m, n_logic_2[i=P, j=P2, l=L, k=Kn; k>fKn && (i, j)!=(fP,fP2)],
+    @constraint(m, n_logic_2[i=P, j=P2, l=L, k=Kn; 
+                             k>fKn && (i, j)!=(fP,fP2) && n_filter[l, k]],
                 y_n[i, j, l, k] + y_o[i, j, l] <= 1
                )
     
@@ -1691,37 +2097,38 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # cost of electricity (new plants)
     @constraint(m, n_u_cost_e_[i=P, j=P2, l=L],
-                n_u_cost[i, j, l] == p.c_u_cost[i, j, l] * n_u[i, j, l]
+                n_u_cost[i, j, l] == sum(p.c_u_cost[i, j, l] * n_u[i, j, l, n] for n in Nd if nd_en_fltr[n])
                )
     # cost of fuel (new plants)
     @constraint(m, n_ehf_cost_e_[i=P, j=P2, l=L],
                 n_ehf_cost[i, j, l] == 
-                sum(p.c_ehf_cost[i, j, l, f]*
-                    (n_ehf[i, j, l, f] + n_u_ehf[i, j, l, f]) for f in Fu)
+                sum(p.c_n_ehf_cost[i, j, l, f]*
+                    (n_ehf[i, j, l, f, n] + n_u_ehf[i, j, l, f, n]) for f in Fu_n[l] for n in Nd if nd_en_fltr[n])
                )
     # 76 
     # 76 #######################################################################
     ##
     # -> output capacity
-    @constraint(m, o_cp_d_e[i=P, j=P2, l=L],
-                o_cp_d_[i, j, l] == o_tcp_d_[i, j, l, sT]
+    @constraint(m, o_cp_d_e[i=P, j=P2, l=L, n=Nd],
+                o_cp_d_[i, j, l, n] == o_tcp_d_[i, j, l, sT, n]
                )
-    @constraint(m, o_cp_m1_i_[i=P, j=P2, l=L], # on
-                o_cp_d_[i, j, l] <= p.o_cp_ub[l] * y_o[i, j, l]
-               )
-    #
-    @constraint(m, o_cp_s_e_[i=P, j=P2, l=L],
-                o_cp[i, j, l] == o_cp_d_[i, j, l]
+    @constraint(m, o_cp_m1_i_[i=P, j=P2, l=L, n=Nd], # on
+                o_cp_d_[i, j, l, n] <= p.o_cp_ub[l, n] * y_o[i, j, l]
                )
     #
-    @constraint(m, o_tcp_d_m1_i_[i=P, j=P2, l=L], # on
-                o_tcp_d_[i, j, l, sT] <= p.o_cp_ub[l] * y_o[i, j, l]
+    @constraint(m, o_cp_s_e_[i=P, j=P2, l=L, n=Nd],
+                o_cp[i, j, l, n] == o_cp_d_[i, j, l, n]
                )
-    @constraint(m, o_tcp_d_m0_i_[i=P, j=P2, l=L], # off
-                o_tcp_d_[i, j, l, sF] <= p.o_cp_ub[l] * (1 - y_o[i, j, l])
+    #
+    @constraint(m, o_tcp_d_m1_i_[i=P, j=P2, l=L, n=Nd], # on
+                o_tcp_d_[i, j, l, sT, n] <= p.o_cp_ub[l, n] * y_o[i, j, l]
                )
-    @constraint(m, o_tcp_d_s_e_[i=P, j=P2, l=L],
-                r_cp[i, j, l] == o_tcp_d_[i, j, l, sT] + o_tcp_d_[i, j, l, sF]
+    @constraint(m, o_tcp_d_m0_i_[i=P, j=P2, l=L, n=Nd], # off
+                o_tcp_d_[i, j, l, sF, n] <= p.o_cp_ub[l, n] * (1 - y_o[i, j, l])
+               )
+    @constraint(m, o_tcp_d_s_e_[i=P, j=P2, l=L, n=Nd],
+                r_cp[i, j, l, n] == o_tcp_d_[i, j, l, sT, n] + 
+                o_tcp_d_[i, j, l, sF, n]
                ) # total cap
 
     # 76 
@@ -1729,81 +2136,118 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> output capacity by retrofit 
     # 0
-    ##@constraint(m, o_r_cp_d_e_[i=P, j=P2, l=L, k=Kr],
+    ##@constraint(m, o_r_cp_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
     ##            r_cp_d_[i, j, l, k] == 
     ##            o_rcp_d_[i, j, l, k, sT] + o_rcp_d_[i, j, l, k, sF]
     ##           )
-    ##@constraint(m, o_rcp_m1_i_[i=P, j=P2, l=L, k=Kr],
+    ##@constraint(m, o_rcp_m1_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
     ##            o_rcp_d_[i, j, l, k, sT] <= p.o_cp_bM * y_o[i, j, l]
     ##           )
-    ##@constraint(m, o_rcp_m0_i_[i=P, j=P2, l=L, k=Kr],
+    ##@constraint(m, o_rcp_m0_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
     ##            o_rcp_d_[i, j, l, k, sF] <= p.o_cp_bM * (1.0-y_o[i, j, l])
     ##           )
-    ##@constraint(m, o_rcp_d_e_[i=P, j=P2, l=L, k=Kr],
+    ##@constraint(m, o_rcp_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
     ##            o_rcp[i, j, l, k] == o_rcp_d_[i, j, l, k, sT]
     ##           )
 
-
-
+    # 76
+    @constraint(m, n_mass_b_e_[i=P, j=P2, l=L, k=Kn, n=Nd, c=Mt; 
+                               n_filter[l, k] && node_mat[n, c] && !skip_mb[n, c]],
+                f_xin(m, i, j, l, k, n, c, input_mat; mode="n") 
+                - f_xout(m, i, j, l, k, n, c, output_mat; mode="n")
+                # + sum(p.n_Kmb[n, c, c1, k] * n_x_out_d_[i, j, l, k, n, c1] for c1 in Mt
+                #      if node_mat[n, c1] && c1 ∈ output_mat[n]) == 0.0
+                + (p.n_Kmb[n, c, ckey[n], k] * n_cp_d_[i, j, l, k, n]) == 0.0
+               )
+    #
+    @constraint(m, n_comp_link_e_[i=P, j=P2, l=L, lnk=Ln],
+                n_x_out[i, j, l, links_list[lnk][1], links_list[lnk][3]] 
+                == 
+                n_x_in[i, j, l, links_list[lnk][2], links_list[lnk][3]]
+               )
+    #
+    @constraint(m, n_x_in_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd, c=Mt; 
+                               n_filter[l, k] && node_mat[n, c] &&
+                               c ∈ input_mat[n]],
+                n_x_in_d_[i, j, l, k, n, c] <= 
+                p.n_x_in_ub[l, n, c] * y_n[i, j, l, k]
+               )
+    @constraint(m, n_x_in_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt;
+                               node_mat[n, c] && c ∈ input_mat[n]],
+                n_x_in[i, j, l, n, c] == 
+                sum(n_x_in_d_[i, j, l, k, n, c] for k in Kn if n_filter[l, k])
+               )
+    #
+    @constraint(m, n_x_out_m_i_[i=P, j=P2, l=L, k=Kn, n=Nd, c=Mt; 
+                                n_filter[l, k] && node_mat[n, c] &&
+                                c ∈ output_mat[n]],
+                n_x_out_d_[i, j, l, k, n, c] <= 
+                p.n_x_out_ub[l, n, c] * y_n[i, j, l, k]
+               )
+    @constraint(m, n_x_out_s_e_[i=P, j=P2, l=L, n=Nd, c=Mt; 
+                                node_mat[n, c] && c ∈ output_mat[n]],
+                n_x_out[i, j, l, n, c] == 
+                sum(n_x_out_d_[i, j, l, k, n, c] for k in Kn if n_filter[l, k])
+               )
     # 76 
     # 76 #######################################################################
     ##
     # -> existing plant electricity consumption
     # 0
-    @constraint(m, o_u_d_e_[i=P, j=P2, l=L], 
-                o_u_d_[i, j, l] == o_tu_d_[i, j, l, sT]
+    @constraint(m, o_u_d_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]], 
+                o_u_d_[i, j, l, n] == o_tu_d_[i, j, l, sT, n]
                )
     # 1
-    @constraint(m, o_u_m_i_[i=P, j=P2, l=L],
-                o_u_d_[i, j, l] <= p.o_u_bM[l] * y_o[i, j, l]
+    @constraint(m, o_u_m_i_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                o_u_d_[i, j, l, n] <= p.o_u_ub[l, n] * y_o[i, j, l]
                )
     # 2
-    @constraint(m, o_u_s_[i=P, j=P2, l=L],
-                o_u[i, j, l] == o_u_d_[i, j, l]
+    @constraint(m, o_u_s_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                o_u[i, j, l, n] == o_u_d_[i, j, l, n]
                )
     # 3
-    @constraint(m, o_tu_d_m1_i_[i=P, j=P2, l=L],
-                o_tu_d_[i, j, l, sT] <= p.o_u_bM[l] * y_o[i, j, l]
+    @constraint(m, o_tu_d_m1_i_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                o_tu_d_[i, j, l, sT, n] <= p.o_u_ub[l, n] * y_o[i, j, l]
                )
     # 4
-    @constraint(m, o_tu_d_m0_i_[i=P, j=P2, l=L],
-                o_tu_d_[i, j, l, sF] <= p.o_u_bM[l] * (1 - y_o[i, j, l])
+    @constraint(m, o_tu_d_m0_i_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                o_tu_d_[i, j, l, sF, n] <= p.o_u_ub[l, n] * (1 - y_o[i, j, l])
                )
     # 5
-    @constraint(m, o_tu_s_e_[i=P, j=P2, l=L],
-                r_u[i, j, l] == o_tu_d_[i, j, l, sT] + o_tu_d_[i, j, l, sF]
+    @constraint(m, o_tu_s_e_[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]],
+                r_u[i, j, l, n] == o_tu_d_[i, j, l, sT, n] 
+                + o_tu_d_[i, j, l, sF, n]
                )
     # 76 
     # 76 #######################################################################
     ##
     # -> existing plant fuel consumption
     # 0 
-    @constraint(m, o_ehf_d_e_[i=P, j=P2, l=L, f=Fu],
-                o_ehf_d_[i, j, l, f] == o_tehf_d_[i, j, l, f, sT]
+    @constraint(m, o_ehf_d_e_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                o_ehf_d_[i, j, l, f, n] == o_tehf_d_[i, j, l, f, sT, n]
                )
     # 1 
-    @constraint(m, o_ehf_m_i[i=P, j=P2, l=L, f=Fu],
-                o_ehf_d_[i, j, l, f] <= p.o_ehf_bM[l, f] * y_o[i, j, l]
+    @constraint(m, o_ehf_m_i[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                o_ehf_d_[i, j, l, f, n] <= p.o_ehf_ub[f, l, n] * y_o[i, j, l]
                )
     # 2 
-    @constraint(m, o_ehf_s_[i=P, j=P2, l=L, f=Fu],
-                o_ehf[i, j, l, f] == o_ehf_d_[i, j, l, f]
+    @constraint(m, o_ehf_s_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                o_ehf[i, j, l, f, n] == o_ehf_d_[i, j, l, f, n]
                )
     # 3 
-    @constraint(m, o_tehf_d_m1_i_[i=P, j=P2, l=L, f=Fu],
-                o_tehf_d_[i, j, l, f, sT] <= p.o_ehf_bM[l, f] * y_o[i, j, l]
+    @constraint(m, o_tehf_d_m1_i_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                o_tehf_d_[i, j, l, f, sT, n] <= p.o_ehf_ub[f, l, n] * y_o[i, j, l]
                )
     # 4 
-    @constraint(m, o_tehf_d_m0_i_[i=P, j=P2, l=L, f=Fu],
-                o_tehf_d_[i, j, l, f, sF] <= p.o_ehf_bM[l, f] * (1 - y_o[i, j, l])
+    @constraint(m, o_tehf_d_m0_i_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                o_tehf_d_[i, j, l, f, sF, n] <= p.o_ehf_ub[f, l, n] * (1 - y_o[i, j, l])
                )
     # 5  this includes fuel + fuel-for-electricity
     # we can still recover r_u_ehf with postprocessing
-    @constraint(m, o_tehf_s_e_[i=P, j=P2, l=L, f=Fu],
-                r_ehf[i, j, l, f] + r_u_ehf[i, j, l, f] == 
-                o_tehf_d_[i, j, l, f, sT] + o_tehf_d_[i, j, l, f, sF]
+    @constraint(m, o_tehf_s_e_[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]],
+                r_ehf[i, j, l, f, n] + r_u_ehf[i, j, l, f, n] == 
+                o_tehf_d_[i, j, l, f, sT, n] + o_tehf_d_[i, j, l, f, sF, n]
                )
-
 
     #
     # -> output emissions (why?)
@@ -1935,12 +2379,18 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     
     # cost of electrictity (existing)
     @constraint(m, o_u_cost_e_[i=P, j=P2, l=L],
-                o_u_cost[i, j, l] == p.c_u_cost[i, j, l] * o_u[i, j, l]
+                o_u_cost[i, j, l] == sum(
+                                         p.c_u_cost[i, j, l] * o_u[i, j, l, n]
+                                         for n in Nd if nd_en_fltr[n]
+                                        )
                )
     # cost of fuel (existing)
     @constraint(m, o_ehf_cost_e_[i=P, j=P2, l=L],
                 o_ehf_cost[i, j, l] == 
-                sum(p.c_ehf_cost[i, j, l, f] * o_ehf[i, j, l, f] for f in Fu)
+                sum(
+                    sum(p.c_r_ehf_cost[i, j, l, f] * o_ehf[i, j, l, f, n] for f in Fu_r[l])
+                    for n in Nd if nd_en_fltr[n]
+                   )
                )
     # cost of storing carbon
     @constraint(m, o_ep1gcs_cost_e_[i=P, j=P2, l=L],
@@ -1949,6 +2399,20 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # cost of storing carbon
     @constraint(m, n_ep1gcs_cost_e_[i=P, j=P2, l=L],
                 n_ep1gcs_cost[i, j, l] == p.c_cts_cost[l] * n_ep1gcs[i, j, l]
+               )
+
+    # cost of input materials
+    @constraint(m, o_x_in_cost_e_[i=P, j=P2, l=L],
+                o_x_in_cost[i, j, l] == 
+                sum(p.c_xin_cost[l, c] * o_x_in[i, j, l, n, c] for n in Nd
+                    for c in Mt if node_mat[n, c] && c ∈ input_mat[n]
+                   )
+               )
+    @constraint(m, n_x_in_cost_e_[i=P, j=P2, l=L],
+                n_x_in_cost[i, j, l] == 
+                sum(p.c_xin_cost[l, c] * n_x_in[i, j, l, n, c] for n in Nd
+                    for c in Mt if node_mat[n, c] && c ∈ input_mat[n]
+                   )
                )
     
     # initial conditions
@@ -1984,10 +2448,14 @@ function attachInitCond(index_l::T, m::JuMP.Model, p::params, s::sets) where T<:
 
     Kr = s.Kr
     Kn = s.Kn
-    Fu = s.Fu
+    Fu_r = s.Fu_r
+    Fu_n = s.Fu_n
 
     n_periods = p.n_periods
     n_subperiods = p.n_subperiods
+    
+    r_filter = p.r_filter
+    n_filter = p.n_filter
 
     y_r = m[:y_r]
     y_e = m[:y_e]
@@ -2011,7 +2479,9 @@ function attachInitCond(index_l::T, m::JuMP.Model, p::params, s::sets) where T<:
     @constraint(m, r_logic_init_0[l=L], # all non 0 rtrf
                 y_r[fP, fP2, l, fKr] == 1
                )
-    @constraint(m, r_logic_init_1[l=L, k=Kr; k > fKr], # all non 0 rtrf
+
+    @constraint(m, r_logic_init_1[l=L, k=Kr; k > fKr && r_filter[l, k]], 
+                # all non 0 rtrf
                 y_r[fP, fP2, l, k] == 0
                )
     @constraint(m, o_logic_init_0_[l=L],
@@ -2020,7 +2490,7 @@ function attachInitCond(index_l::T, m::JuMP.Model, p::params, s::sets) where T<:
     @constraint(m, n_logic_0_init[l=L], 
                 y_n[fP, fP2, l, fKn] == 1  # start with no new
                )
-    @constraint(m, n_logic_1_init[l=L, k=Kn; k>fKn], 
+    @constraint(m, n_logic_1_init[l=L, k=Kn; k>fKn && n_filter[l, k]], 
                 y_n[fP, fP2, l, k] == 0  # start with no new facility
                )
 
@@ -2073,48 +2543,55 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
     n_ehf_cost = m[:n_ehf_cost]
     o_ep1gcs_cost = m[:o_ep1gcs_cost]
     n_ep1gcs_cost = m[:n_ep1gcs_cost]
+
+    o_x_in_cost = m[:o_x_in_cost]
+    n_x_in_cost = m[:n_x_in_cost]
     @objective(m, Min,
                # 1 loan
-               1e-06*(sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
-                                  for l in L) for j in P2) for i in P)
-                      # 2 o&m
-                      + sum(sum(sum(p.discount[i, j] * o_conm[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 3 loan new
-                      + sum(sum(sum(p.discount[i, j] * n_pay[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 4 o&m new
-                      + sum(sum(sum(p.discount[i, j] * n_conm[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 5 retirement
-                      + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
-                                    for l in L) for j in P2) for i in P)
-                      # 6 last loan
-                      + sum(p.discount[n_periods,n_subperiods]*
-                            o_loan_last[n_periods, l, sT] 
-                            for l in L)
-                      # 7 last loan new
-                      + sum(p.discount[n_periods,n_subperiods]*
-                            n_loan_p[n_periods,n_subperiods,l] 
-                            for l in L)
-                      # 8 elec
-                      + sum(p.discount[i, j] * o_u_cost[i, j, l] 
-                            for l in L for j in P2 for i in P)
-                      # 9 elec new
-                      + sum(p.discount[i, j] * n_u_cost[i, j, l]
-                            for l in L for j in P2 for i in P)
-                      # 10 fuel
-                      + sum(p.discount[i, j] * o_ehf_cost[i, j, l]
-                            for l in L for j in P2 for i in P)
-                      # 11 fuel new
-                      + sum(p.discount[i, j] * n_ehf_cost[i, j, l]
-                            for l in L for j in P2 for i in P)
-                      #
-                      + sum(p.discount[i, j] * o_ep1gcs_cost[i, j, l] 
-                            for l in L for j in P2 for i in P)
-                      + sum(p.discount[i, j] * n_ep1gcs_cost[i, j, l] 
-                            for l in L for j in P2 for i in P)
-                     )
+               (sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
+                            for l in L) for j in P2) for i in P)
+                # 2 o&m
+                + sum(sum(sum(p.discount[i, j] * o_conm[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 3 loan new
+                + sum(sum(sum(p.discount[i, j] * n_pay[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 4 o&m new
+                + sum(sum(sum(p.discount[i, j] * n_conm[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 5 retirement
+                + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                # 6 last loan
+                + sum(p.discount[n_periods,n_subperiods]*
+                      o_loan_last[n_periods, l, sT] 
+                      for l in L)
+                # 7 last loan new
+                + sum(p.discount[n_periods,n_subperiods]*
+                      n_loan_p[n_periods,n_subperiods,l] 
+                      for l in L)
+                # 8 elec
+                + sum(p.discount[i, j] * o_u_cost[i, j, l] 
+                      for l in L for j in P2 for i in P)
+                # 9 elec new
+                + sum(p.discount[i, j] * n_u_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                # 10 fuel
+                + sum(p.discount[i, j] * o_ehf_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                # 11 fuel new
+                + sum(p.discount[i, j] * n_ehf_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                #
+                + sum(p.discount[i, j] * o_ep1gcs_cost[i, j, l] 
+                      for l in L for j in P2 for i in P)
+                + sum(p.discount[i, j] * n_ep1gcs_cost[i, j, l] 
+                      for l in L for j in P2 for i in P)
+                + sum(p.discount[i, j] * o_x_in_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+                + sum(p.discount[i, j] * n_x_in_cost[i, j, l]
+                      for l in L for j in P2 for i in P)
+               )
                # if you retire but still have unpayed loan it is gonna be
                # reflected here :()
               )
@@ -2132,6 +2609,8 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
     n_periods = p.n_periods
     n_subperiods = p.n_subperiods
 
+    r_filter = p.r_filter
+    n_filter = p.n_filter
 
     fP = first(s.P)
     fP2 = first(P2)
@@ -2193,20 +2672,21 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
                 y_o[i, n_subperiods, l] - y_o[i+1, fP2, l]  >= 0.0
                )
     # 2: 
-    @constraint(m, r_logic_budget_p_link_i_[i=P, l=L, k=Kr; 
-                                       k>fKr && i<n_periods],
+    @constraint(m, 
+                r_logic_budget_p_link_i_[i=P, l=L, k=Kr; 
+                                            k>fKr && i<n_periods && r_filter[l, k]],
                 #y_r[i+1, 0, l, k] >= y_r[i, n_subperiods, l, k]
                 -y_r[i, n_subperiods, l, k] + y_r[i+1, fP2, l, k] >= 0.0
                )
     # 3: 
     @constraint(m, r_logic_onoff_1_p_link_i_[i=P, l=L, k=Kr;
-                                        i<n_periods],
+                                             i<n_periods && r_filter[l, k]],
                 y_o[i, n_subperiods, l] - y_r[i, n_subperiods, l, k] 
                 + y_r[i+1, fP2, l, k] >= 0.
                )
     # 4: 
     @constraint(m, r_logic_onoff_2_p_link_i_[i=P, l=L, k=Kr;
-                                        i<n_periods],
+                                             i<n_periods && r_filter[l, k]],
                 #y_o[i, n_subperiods, l] + 1 - y_r[i+1, 0, l, k] 
                 #+ y_r[i, n_subperiods, l, k] >= 1
                 y_o[i, n_subperiods, l] + y_r[i, n_subperiods, l, k]
@@ -2350,7 +2830,8 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
                 y_n[i, n_subperiods, l, fKn] - y_n[i+1, fP2, l, fKn] >= 0.
                )
     # 22: 
-    @constraint(m, n_logic_1_p_link_i_[i=P, l=L, k=Kn; i<n_periods && k>fKn],
+    @constraint(m, n_logic_1_p_link_i_[i=P, l=L, k=Kn; 
+                                       i<n_periods && k>fKn && n_filter[l, k]],
                 #y_n[i+1, 0, l, k] >= y_n[i, n_subperiods, l, k]
                 -y_n[i, n_subperiods, l, k] + y_n[i+1, fP2, l, k]  >= 0.
                )
@@ -2458,8 +2939,8 @@ function attachLocationBlock(m::Model, p::params, s::sets)
 
     o_cp = m[:o_cp]  # 25
     n_cp = m[:n_cp]  # 26
-    o_ep1ge = m[:o_ep1ge]  # 27
-    n_ep1ge = m[:n_ep1ge]  # 28
+    o_ep1ge = m[:o_ep1ge];  # 27
+    n_ep1ge = m[:n_ep1ge]; # 28
 
     o_u = m[:o_u]  # 29
     n_u = m[:n_u]  # 30
@@ -2473,10 +2954,10 @@ function attachLocationBlock(m::Model, p::params, s::sets)
     n_cp_d_ = m[:n_cp_d_]
     # 25
     # aggregate demand constraint
-    @constraint(m, ag_dem_l_link_i_[i=P, j=P2],
-                sum(o_cp[i, j, l] for l in L) + sum(n_cp[i, j, l] for l in L)
-                >= p.demand[i, j]
-               )
+    # @constraint(m, ag_dem_l_link_i_[i=P, j=P2],
+    #             sum(o_cp[i, j, l] for l in L) + sum(n_cp[i, j, l] for l in L)
+    #             >= p.demand[i, j]
+    #            )
 
     # 26 debug
     #@constraint(m, ag_co2_l_link_i_[i=P, j=P2],
@@ -2549,7 +3030,7 @@ function turnover_con!(m::JuMP.Model, p::params, s::sets)
 
 end
 
-function min_ep1ge(m::JuMP.Model, p::params, s::sets)
+function min_ep1ge!(m::JuMP.Model, p::params, s::sets)
 
     P2 = s.P2
     P = s.P
@@ -2685,32 +3166,31 @@ function save_discrete_state(m::JuMP.Model, p::params, s::sets)
     L = s.L
     Kr = s.Kr
     Kn = s.Kn
-    Fu = s.Fu
+    Fu_r = s.Fu_r
+    Fu_n = s.Fu_n
     Nf = s.Nf
+    
+    r_filter = p.r_filter
+    n_filter = p.n_filter
 
     y_o = value.(m[:y_o])  # [i,j,l]
-    y_r = value.(m[:y_r])  # [i,j,l,k]
     y_e = value.(m[:y_e])  # [i,j,l]
+    y_r = value.(m[:y_r])  # [i,j,l,k]
+    y_n = value.(m[:y_n])  # [i,j,l,k]
+
     r_yps = value.(m[:r_yps])  # [i,j,l]
     e_yps = value.(m[:e_yps])  # [i,j,l]
-    y_n = value.(m[:y_n])  # [i,j,l,k]
     n_yps = value.(m[:n_yps])  # [i,j,l]
+   
+    yo = DataFrame(Containers.rowtable(y_o; header=[:i, :j, :l, :y_o]))
+    ye = DataFrame(Containers.rowtable(y_e; header=[:i, :j, :l, :y_e]))
 
-    y_o = Array(y_o)
-    y_r = Array(y_r)
-    y_e = Array(y_e)
-    r_yps = Array(r_yps) 
-    e_yps = Array(e_yps) 
-    y_n = Array(y_n)
-    n_yps = Array(n_yps)
-    
-    yo = DataFrame(["$((j, l))"=>y_o[:, j, l] for j in P2 for l in L])
-    ye = DataFrame(["$((j, l))"=>y_e[:,j,l] for j in P2 for l in L])
-    yr = DataFrame(["$((j,l,k))"=>y_r[:,j,l,k] for j in P2 for l in L for k in Kr])
-    yn = DataFrame(["$((j,l,k))"=>y_n[:,j,l,k] for j in P2 for l in L for k in Kn])
-    eyps = DataFrame(["$((j, l))" => e_yps[:,j,l] for j in P2 for l in L])
-    ryps = DataFrame(["$((j, l))" => r_yps[:,j,l] for j in P2 for l in L])
-    nyps = DataFrame(["$((j, l))" => n_yps[:,j,l] for j in P2 for l in L])
+    yr = DataFrame(Containers.rowtable(y_r; header=[:i, :j, :l, :k, :y_r]))
+    yn = DataFrame(Containers.rowtable(y_n; header=[:i, :j, :l, :k, :y_n]))
+
+    eyps = DataFrame(Containers.rowtable(e_yps; header=[:i, :j, :l, :e_yps]))
+    ryps = DataFrame(Containers.rowtable(r_yps; header=[:i, :j, :l, :e_yps]))
+    nyps = DataFrame(Containers.rowtable(n_yps; header=[:i, :j, :l, :n_yps]))
 
     CSV.write("yostate.csv", yo)
     CSV.write("yestate.csv", ye)
@@ -2727,7 +3207,8 @@ function load_discrete_state(m::JuMP.Model, p::params, s::sets)
     L = s.L
     Kr = s.Kr
     Kn = s.Kn
-    Fu = s.Fu
+    Fu_r = s.Fu_r
+    Fu_n = s.Fu_n
     Nf = s.Nf
     #
     yof="yostate.csv" 
@@ -2746,87 +3227,50 @@ function load_discrete_state(m::JuMP.Model, p::params, s::sets)
     ryps = DataFrame(CSV.File(rypsf));
     nyps = DataFrame(CSV.File(nypsf));
     
-    yo_a = zeros(length(P), length(P2), length(L))
-    for j in P2
-        for l in L
-            col = length(L) * (j-1) + l
-            yo_a[:, j, l] = yo[:, col]
-        end
-    end
-    ye_a = zeros(length(P), length(P2), length(L))
-    for j in P2
-        for l in L
-            col = length(L) * (j-1) + l
-            ye_a[:, j, l] = ye[:, col]
-        end
-    end
-    yr_a = zeros(length(P), length(P2), length(L), length(Kr))
-    for j in P2
-        for l in L
-            for k in Kr
-                col = length(Kr)*(l-1) + (length(Kr)*length(L))*(j-1) + k
-                #println((j, l, k), col)
-                yr_a[:, j, l, k] = yr[:, col]
-            end
-        end
-    end
-    yn_a = zeros(length(P), length(P2), length(L), length(Kn))
-    for j in P2
-        for l in L
-            for k in Kn
-                col = length(Kn)*(l-1)+(length(Kn)*length(L))*(j-1) + k
-                #println((j, l, k), col)
-                yn_a[:, j, l, k] = yn[:, col]
-            end
-        end
-    end
-    eyps_a = zeros(length(P), length(P2), length(L))
-    for j in P2
-        for l in L
-            col = length(L)*(j-1) + l
-            eyps_a[:, j, l] = eyps[:, col]
-        end
-    end
-    ryps_a = zeros(length(P), length(P2), length(L))
-    for j in P2
-        for l in L
-            col = length(L)*(j-1) + l
-            ryps_a[:, j, l] = ryps[:, col]
-        end
-    end
-    nyps_a = zeros(length(P), length(P2), length(L))
-    for j in P2
-        for l in L
-            col = length(L)*(j-1) + l
-            nyps_a[:, j, l] = nyps[:, col]
-        end
+    for row in 1:size(yo)[1]
+        (i, j, l) = yo[row, 1:3]
+        v = yo[row, 4]
+        set_start_value(m[:y_o][i, j, l], v)
     end
 
-    y_o = m[:y_o]  # [i,j,l]
-    y_r = m[:y_r]  # [i,j,l,k]
-    y_e = m[:y_e]  # [i,j,l]
-    r_yps = m[:r_yps]  # [i,j,l]
-    e_yps = m[:e_yps]  # [i,j,l]
-    y_n = m[:y_n]  # [i,j,l,k]
-    n_yps = m[:n_yps]  # [i,j,l]
-    
-    for i in P
-        for j in P2
-            for l in L
-                set_start_value(y_o[i, j, l], yo_a[i,j,l])
-                set_start_value(y_e[i, j, l], ye_a[i,j,l])
-                set_start_value(r_yps[i, j, l], ryps_a[i,j,l])
-                set_start_value(e_yps[i, j, l], eyps_a[i,j,l])
-                set_start_value(n_yps[i, j, l], nyps_a[i,j,l])
-                for k in Kr
-                    set_start_value(y_r[i, j, l, k], yr_a[i,j,l,k])
-                end
-                for k in Kn
-                    set_start_value(y_n[i, j, l, k], yn_a[i,j,l,k])
-                end
-            end
+    for row in 1:size(ye)[1]
+        (i, j, l) = ye[row, 1:3]
+        v = ye[row, 4]
+        set_start_value(m[:y_e][i, j, l], v)
+    end
+
+    for row in 1:size(yr)[1]
+        (i, j, l, k) = yr[row, 1:4]
+        if !p.r_filter[l, k]
+            continue
         end
+        v = yr[row, 5]
+        set_start_value(m[:y_r][i, j, l, k], v)
+    end
+
+    for row in 1:size(yn)[1]
+        (i, j, l, k) = yn[row, 1:4]
+        if !p.n_filter[l, k]
+            continue
+        end
+        v = yn[row, 5]
+        set_start_value(m[:y_n][i, j, l, k], v)
     end
     
+    for row in 1:size(eyps)[1]
+        (i, j, l) = eyps[row, 1:3]
+        v = eyps[row, 4]
+        set_start_value(m[:e_yps][i, j, l], v)
+    end
+    for row in 1:size(ryps)[1]
+        (i, j, l) = ryps[row, 1:3]
+        v = ryps[row, 4]
+        set_start_value(m[:r_yps][i, j, l], v)
+    end
+    for row in 1:size(nyps)[1]
+        (i, j, l) = nyps[row, 1:3]
+        v = nyps[row, 4]
+        set_start_value(m[:n_yps][i, j, l], v)
+    end
 
 end
