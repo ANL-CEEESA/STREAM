@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 # Copyright (C) 2023, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental,
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy,
 # Economic, and Equity Analysis Model
 # By: Argonne National Laboratory
 # BSD-3 OPEN SOURCE LICENSE
@@ -33,9 +34,9 @@
 
 # vim: expandtab colorcolumn=80 tw=80
 
-# created by David Thierry @dthierry 2024
-#
-#
+# written by David Thierry @dthierry 2024
+# bars.py
+# notes: creates output analysis plots.
 # 80############################################################################
 
 import matplotlib.pyplot as plt
@@ -108,17 +109,19 @@ def main():
     dnl = pd.read_csv(nlf)
     labn = dnl.iloc[:,0].to_list()
 
-    plot_legend(rf, folder, colors, labr, labn)
+    # plot_legend(rf, folder, colors, labr, labn)
 
-    plot_capacities(rf, folder, colors, labr, labn, xaxislabel="year")
-    plot_cumulative_expansion(rf, folder, colors, xaxislabel="year")
-    plot_ep1(rf, folder, colors, labr, labn, xaxislabel="year")
-    plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel="year")
-    plot_emisions(rf, folder, xaxislabel="year")
-    plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel="year")
-    # plot_pie_by_loc(rf, folder, colors, labr, labn)
-    plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel="year")
-    plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel="year")
+    # plot_capacities(rf, folder, colors, labr, labn, xaxislabel="year")
+    # plot_cumulative_expansion(rf, folder, colors, xaxislabel="year")
+    # plot_ep1(rf, folder, colors, labr, labn, xaxislabel="year")
+    # plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel="year")
+    # plot_emisions(rf, folder, xaxislabel="year")
+    # plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel="year")
+    # # plot_pie_by_loc(rf, folder, colors, labr, labn)
+    # plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel="year")
+    # plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel="year")
+
+    plot_capf(rf, folder, colors, labr, labn, xaxislabel="year")
 
 # 80############################################################################
 def plot_emisions(rf, folder, xaxislabel=None):
@@ -994,6 +997,72 @@ def plot_legend(rf, folder, colors, labr, labn):
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
     export_legend(legend_object, filename=folder + "dem_labl.png")
+
+
+def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
+    cprf = rf + "/dracf.csv"
+    dcf = pd.read_csv(cprf)
+
+    f, a = plt.subplots(dpi=300)
+    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    if xaxislabel == "year":
+        xvals = dcf.iloc[:, 0]
+        w = (dcf.iloc[1, 0] - dcf.iloc[0, 0]) * 0.8
+    else:
+        xvals = np.arange(dcf.shape[0])
+        w = 0.8
+
+    for i in range(1, dcf.shape[1]):
+        name = dcf.columns[i]
+        node = name.split("_")[1]
+        if node == "3":
+            a.step(xvals, dcf.iloc[:, i], ls="--", lw=0.5, marker=".", label=f"plnt={i}")
+
+    a.set_title("(STREAM) Cap Fact Node=3 (Existing)")
+    a.set_xlabel("Year")
+
+    # tick labels
+    a.xaxis.set_major_formatter("{x:.0f}")
+    a.set_xticks(xvals)
+
+    f.savefig(folder + "r_capf.png", dpi=300, format="png")
+    a.legend(bbox_to_anchor=(1.0, 1.0))
+    legend_object = a.get_legend()
+    export_legend(legend_object, filename=folder + "legend_r_capf.png")
+
+
+    cpnf = rf + "/dnacf.csv"
+    dcf = pd.read_csv(cpnf)
+    f, a = plt.subplots(dpi=300)
+    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    if xaxislabel == "year":
+        xvals = dcf.iloc[:, 0]
+        w = (dcf.iloc[1, 0] - dcf.iloc[0, 0]) * 0.8
+    else:
+        xvals = np.arange(dcf.shape[0])
+        w = 0.8
+
+    for i in range(1, dcf.shape[1]):
+        name = dcf.columns[i]
+        node = name.split("_")[1]
+        if node == "3":
+            a.step(xvals, dcf.iloc[:, i], ls="--", lw=0.5, marker=".", label=f"plnt={i}")
+
+    a.set_title("(STREAM) Cap Fact Node=3 (New)")
+    a.set_xlabel("Year")
+
+    # tick labels
+    a.xaxis.set_major_formatter("{x:.0f}")
+    a.set_xticks(xvals)
+
+    f.savefig(folder + "n_capf.png", dpi=300, format="png")
+    a.legend(bbox_to_anchor=(1.0, 1.0))
+    legend_object = a.get_legend()
+    export_legend(legend_object, filename=folder + "legend_n_capf.png")
+
+
 
 if __name__ == "__main__":
     main()

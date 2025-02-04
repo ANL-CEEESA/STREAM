@@ -3,7 +3,7 @@
 
 # Copyright (C) 2023, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental,
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy,
 # Economic, and Equity Analysis Model
 # By: Argonne National Laboratory
 # BSD OPEN SOURCE LICENSE
@@ -37,6 +37,8 @@
 # vim: tabstop=2 shiftwidth=2 expandtab colorcolumn=80 tw=80
 
 # created @dthierry 2022
+# written by David Thierry @dthierry 2022
+# pltBars.py
 # description: generate the plots with the bars (and stacked) for the capacity.
 #
 # log:

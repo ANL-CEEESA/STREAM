@@ -1,6 +1,6 @@
 # Copyright (C) 2024, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, 
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy, 
 # Economic, and Equity Analysis Model
 # By: Argonne National Laboratory
 # BSD-3 OPEN SOURCE LICENSE
@@ -33,7 +33,9 @@
 
 # vim: tabstop=2 shiftwidth=2 expandtab colorcolumn=80 tw=80
 
-# created by David Thierry @dthierry 2024
+# written by David Thierry @dthierry 2024
+# postprocess.jl
+# notes: this creates the output of a model run.
 # log:
 
 #80#############################################################################
@@ -199,7 +201,7 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
     kn = p.key_node
 
-    dyr = DataFrame("yr"=>yr)
+    #dyr = DataFrame("yr"=>yr)
     drcp_d = DataFrame("yr"=>yr)
     drcp_d_act = DataFrame("yr"=>yr)
     
@@ -336,6 +338,63 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
 
     return 
 end
+
+function compute_utilization_rates(m::JuMP.Model, p::params, s::sets, 
+        fname::String)
+    yr = generate_yr_range(p)
+    kn = p.key_node
+
+    # active capacity
+    dracf = DataFrame("yr"=>yr)
+    dnacf = DataFrame("yr"=>yr)
+    # base (key) capacity
+    #drcb = DataFrame("yr"=>yr)
+    
+    yo = value.(m[:y_o])
+    yo = Array(yo)
+    yo = round.(yo)
+    yo = trunc.(Int32, yo)
+    # active capacity factor
+    acf = zeros(length(s.P)*length(s.P2))
+    # by node
+    for n in s.Nd
+        for l in s.L
+            acf .= 0.0
+            for j in s.P2
+                for i in s.P
+                    row = length(s.P2)*(i-1) + j
+                    cpb = value(m[:cpb][i, j, l]) 
+                    if cpb > 1e-08
+                        acf[row] = value(m[:r_cp][i, j, l, n])*yo[i, j, l]/cpb
+                    end
+                end
+            end
+            dracf[:, "$(l)_$(n)"] = acf
+        end
+    end
+
+    # new by node
+    for n in s.Nd
+        for l in s.L
+            acf .= 0.0
+            for j in s.P2
+                for i in s.P
+                    row = length(s.P2)*(i-1) + j
+                    n_c0 = value(m[:n_c0][i, l]) 
+                    if n_c0 > 1e-08
+                        acf[row] = value(m[:n_cp][i, j, l, n])/n_c0
+                    end
+                end
+            end
+            dnacf[:, "$(l)_$(n)"] = acf
+        end
+    end
+
+    CSV.write(fname*"/"*"dracf.csv", dracf)
+    CSV.write(fname*"/"*"dnacf.csv", dnacf)
+
+end
+
 
 
 """
@@ -903,6 +962,8 @@ function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     write_emission_plant(m, p, s, folder)
     write_tech_labels(m, p, s, f0, folder)
     write_filters(p, s, folder)
+
+    compute_utilization_rates(m, p, s, folder)
     return folder
 end
 
