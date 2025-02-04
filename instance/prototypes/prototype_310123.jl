@@ -18,7 +18,7 @@
 import Clp
 Clp.Clp_Version() #: this one is necessary sometimes in macos
 
-using dre4m
+using stre3am 
 using JuMP
 
 #80#############################################################################
