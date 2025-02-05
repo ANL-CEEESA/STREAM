@@ -1,38 +1,35 @@
 
-# DRE<sup>4</sup>M
-### Decarbonization Roadmapping and Energy, Environmental, Economic, and Equity Analysis Model
+# STRE<sup>3</sup>AM
+### Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model
 
 
 
-<p class="aligncenter"> <img src="./docs/docs/img/dre4m.svg" width="40%" height="40%"
-title="dre4am fr"> </p>
+<p class="aligncenter"> <img src="./docs/docs/img/2025_logo.png" width="40%" height="40%"
+title="stre3am fr"> </p>
 
-This is the implementation of the framework for the planning of the
-technological makeup of the industrial sector.
+The Strategic Technology Roadmapping and Energy, Environmental, and Economic
+Analysis Model– STREAM – is an optimization-based modeling tool and analysis
+framework to assist with strategic planning and technology investments of the
+industrial sector. This open-source framework is written in Julia using JuMP
+objects, which enables users to model future “pathways” for incumbent
+technologies, fuels and energy carriers, greenhouse gas (GHG) emissions and
+other impacts from industries as they transform in pursuit of a robust
+manufacturing economy. The model starts with an initial stock of industrial
+production technologies and assets at a facility level or an aggregated national
+level and then determines pathways that minimize cost or similar economic
+objective(s), subject to an array of constraints on demand, annual or cumulative
+GHG emissions, market shares, and other exogenously specified operational
+considerations such as capacity utilization rates or regional availability of
+feedstocks and energy sources. Key features of the framework include flexibility
+to model a wide range of industries and industrial technologies/processes at
+varying levels of granularity from facility-level to regional or national level,
+ability to perform parametric sensitivity analyses, and ability to visualize
+model results using visualization objects.
 
-Motivated by the efforts to achieve carbon neutrality, the model of this
-framework modifies the portfolio of technologies over time for the sector of
-interest such that,
-
-<ol type="a"> <li>Net Present Value (NPV) is minimized</li> <li>Constraint on
-Greenhouse Emissions (GHG), e.g. carbon dioxide, is satisfied</li> <li>Demand of
-the underlying commodity is satisfied</li> </ol>
-
-The current implementation reflects a case study for the electric power sector.
-
-The for a given initial set of capacities of different vintages, the space of
-decisions include,
-
-- *Retirement* of the existing capacities.
-- *Retrofitting* the existing capacities to alternative characteristics.
-- *Creation* of new capacities from a technology portfolio.
-
-All the associated quantities with the deployments, e.g. CO<sub>2</sub>, heat
-requirement, etc.
 
 ## Documentation
 
-[Documentation](https://dthierry.github.io/dre4m/).
+[Documentation](https://dthierry.github.io/stre3am/).
 
 ## Source Code Organization
 
@@ -52,8 +49,8 @@ requirement, etc.
 
 ## License
  
-DRE<sup>4</sup>M (`dre4m`) is licensed under the 3-Clause BDS licence.
-Additionally, DRE<sup>4</sup>M (`dre4m`) utilizes several dependencies, which
+STRE<sup>3</sup>AM (`stre4am`) is licensed under the 3-Clause BDS licence.
+Additionally, STRE<sup>4</sup>AM (`stre4am`) utilizes several dependencies, which
 have their own licences. Please refer to their respective repositories for more
 information about the licenses. 
 

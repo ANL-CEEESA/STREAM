@@ -1,7 +1,7 @@
 # Copyright (C) 2023, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, 
-# Economic, and Equity Analysis Model
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy, 
+# Environmental, and Economic Analysis Model
 # By: Argonne National Laboratory
 # BSD-3 OPEN SOURCE LICENSE
 
@@ -32,7 +32,9 @@
 # ******************************************************************************
 
 # vim: tabstop=2 shiftwidth=2 expandtab colorcolumn=80 tw=80
-# created by David Thierry @dthierry 2024
+# written by David Thierry @dthierry 2024
+# journalist.jl
+# notes: journalist
 
 import Dates
 
