@@ -1,4 +1,3 @@
-
 # STRE<sup>3</sup>AM
 ### Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model
 
@@ -49,8 +48,8 @@ model results using visualization objects.
 
 ## License
  
-STRE<sup>3</sup>AM (`stre4am`) is licensed under the 3-Clause BDS licence.
-Additionally, STRE<sup>4</sup>AM (`stre4am`) utilizes several dependencies, which
+STRE<sup>3</sup>AM (`stream`) is licensed under the 3-Clause BDS licence.
+Additionally, STRE<sup>3</sup>AM (`stream`) utilizes several dependencies, which
 have their own licences. Please refer to their respective repositories for more
 information about the licenses. 
 
