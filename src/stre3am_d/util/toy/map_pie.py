@@ -95,7 +95,7 @@ def cap_matrix(rf):
 
 # plant file
 plant_f = "/Users/dthierry/Projects/dr3milp/src/ins_07_29/softX/fac_.csv"
-#plant_f = "/Users/dthierry/Projects/dr3milp/src/data/state_cap.csv"
+plant_f = "/Users/dthierry/Projects/dr3milp/src/data/state_cap.csv"
 dictbounds = {'lat_1': 29.5, 'lat_2': 45.5, 'lon_0': -96.5, 'lat_0': 38.5}
 
 projstring = '+proj=aea +lat_1={} +lat_2={} +lat_0={} +lon_0={}'.format(dictbounds['lat_1'], dictbounds['lat_2'], dictbounds['lat_0'], dictbounds['lon_0'])
@@ -136,6 +136,7 @@ xc = centroids.x
 yc = centroids.y
 
 
+#nrows = 4
 nrows = 4
 
 
@@ -171,7 +172,8 @@ fig, ax = plt.subplots(nrows, n_tp//nrows, sharex=True, sharey=True, dpi=600,
                        gridspec_kw={'hspace':0.1, 'wspace':-0.05})
 #plt.rcParams.update({'axes.titlesize': 'x-small'})
 
-
+print(ax.shape)
+print(n_tp)
 for i in range(n_tp):
     axx = ax.flat[i]
     d.plot(ax=axx, lw=0.1, facecolor='none', edgecolor=edgecolor, zorder=1e6)
@@ -183,7 +185,7 @@ for i in range(n_tp):
         values = cap[plant, :, i]
         #s = sum(values)
         s = sum(values)*5
-        #s = sum(values) * 1e-02/2
+        # s = sum(values) * 1e-02/2
         facecolor=piecolors
         if s <= 1e-08:
             wedges = a0.pie([1], colors="red")
@@ -203,6 +205,6 @@ for i in range(n_tp):
                           # alpha=1.0
                           )
 
-fig.savefig("map.eps", format="eps")
+fig.savefig("map.png", format="png")
 
 

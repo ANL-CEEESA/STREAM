@@ -153,10 +153,14 @@ mutable struct params
     r_ep1gce_ub::Vector{Float64} # 37
     r_ep1gcs_ub::Vector{Float64} # 38
 
-    r_c_Onm::Matrix{Float64} # 39
-    r_rhs_Onm::Matrix{Float64} # 40
-    r_conm_ub::Array{Float64, 2} # 41
+    r_c_fOnm::Matrix{Float64} # 39
+    r_rhs_fOnm::Matrix{Float64} # 40
+    r_cfonm_ub::Array{Float64, 2} # 41
     
+    r_c_vOnm::Matrix{Float64} # 39
+    r_rhs_vOnm::Matrix{Float64} # 40
+    r_cvonm_ub::Array{Float64, 2} # 41
+
     r_e_c_ub::Array{Float64, 1}  # new!
 
     r_loanFact::Array{Float64, 4} # 42
@@ -238,10 +242,13 @@ mutable struct params
 
     n_ep1gcs_bM::Array{Float64, 1} # 79
 
-    n_c_Onm::Matrix{Float64} # 80
-    n_rhs_Onm::Matrix{Float64} # 81
+    n_c_fOnm::Matrix{Float64} # 80
+    n_rhs_fOnm::Matrix{Float64} # 81
+    n_cfonm_bM::Vector{Float64} # 82
 
-    n_conm_bM::Vector{Float64} # 82
+    n_c_vOnm::Matrix{Float64} # 80
+    n_rhs_vOnm::Matrix{Float64} # 81
+    n_cvonm_bM::Vector{Float64} # 82
     ##
     n_c_Fstck::Array{Float64, 3}
     n_rhs_Fstck::Array{Float64, 3}
@@ -269,7 +276,8 @@ mutable struct params
     o_ups_e_mt_in_ub::Array{Float64, 1}
 
     o_pay_bM::Array{Float64, 2}
-    o_conm_bM::Array{Float64, 2}
+    o_cfonm_bM::Array{Float64, 2}
+    o_cvonm_bM::Array{Float64, 2}
 
     o_fstck_ub::Array{Float64, 2}
 
@@ -601,17 +609,29 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "r_ep1gcs_ub")
         d = DataFrame("r_ep1gcs_ub"=>p.r_ep1gcs_ub)
         XLSX.writetable!(sheet, d)
-        # r_c_Onm::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "r_c_Onm")
-        d = DataFrame(["$((r,))"=>p.r_c_Onm[:, r] for r in 1:n_rtft])
+        # r_c_fOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "r_c_fOnm")
+        d = DataFrame(["$((r,))"=>p.r_c_fOnm[:, r] for r in 1:n_rtft])
         XLSX.writetable!(sheet, d)
-        # r_rhs_Onm::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "r_rhs_Onm")
-        d = DataFrame(["$((r,))"=>p.r_rhs_Onm[:, r] for r in 1:n_rtft])
+        # r_rhs_fOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "r_rhs_fOnm")
+        d = DataFrame(["$((r,))"=>p.r_rhs_fOnm[:, r] for r in 1:n_rtft])
         XLSX.writetable!(sheet, d)
-        # r_conm_ub::Array{Float64, 2}
-        sheet = XLSX.addsheet!(xf, "r_conm_ub")
-        d = DataFrame("r_conm_ub"=>p.r_conm_ub[:, 1])
+        # r_cfonm_ub::Array{Float64, 2}
+        sheet = XLSX.addsheet!(xf, "r_cfonm_ub")
+        d = DataFrame("r_cfonm_ub"=>p.r_cfonm_ub[:, 1])
+        XLSX.writetable!(sheet, d)
+        # r_c_vOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "r_c_vOnm")
+        d = DataFrame(["$((r,))"=>p.r_c_vOnm[:, r] for r in 1:n_rtft])
+        XLSX.writetable!(sheet, d)
+        # r_rhs_vOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "r_rhs_vOnm")
+        d = DataFrame(["$((r,))"=>p.r_rhs_vOnm[:, r] for r in 1:n_rtft])
+        XLSX.writetable!(sheet, d)
+        # r_cvonm_ub::Array{Float64, 2}
+        sheet = XLSX.addsheet!(xf, "r_cvonm_ub")
+        d = DataFrame("r_cvonm_ub"=>p.r_cvonm_ub[:, 1])
         XLSX.writetable!(sheet, d)
         # r_e_c_ub::Array{Float64, 1}
         sheet = XLSX.addsheet!(xf, "r_e_c_ub")
@@ -916,17 +936,29 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "n_ep1gcs_bM")
         d = DataFrame("n_ep1gcs_bM"=>p.n_ep1gcs_bM[:, 1])
         XLSX.writetable!(sheet, d)
-        # n_c_Onm::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "n_c_Onm")
-        d = DataFrame(["$(n)"=>p.n_c_Onm[:, n] for n in 1:n_new])
+        # n_c_fOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "n_c_fOnm")
+        d = DataFrame(["$(n)"=>p.n_c_fOnm[:, n] for n in 1:n_new])
         XLSX.writetable!(sheet, d)
-        # n_rhs_Onm::Matrix{Float64}
-        sheet = XLSX.addsheet!(xf, "n_rhs_Onm")
-        d = DataFrame(["$(n)"=>p.n_rhs_Onm[:, n] for n in 1:n_new])
+        # n_rhs_fOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "n_rhs_fOnm")
+        d = DataFrame(["$(n)"=>p.n_rhs_fOnm[:, n] for n in 1:n_new])
         XLSX.writetable!(sheet, d)
-        # n_conm_bM::Vector{Float64}
-        sheet = XLSX.addsheet!(xf, "n_conm_bM")
-        d = DataFrame("n_conm_bM"=>p.n_conm_bM)
+        # n_cfonm_bM::Vector{Float64}
+        sheet = XLSX.addsheet!(xf, "n_cfonm_bM")
+        d = DataFrame("n_cfonm_bM"=>p.n_cfonm_bM)
+        XLSX.writetable!(sheet, d)
+        # n_c_vOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "n_c_vOnm")
+        d = DataFrame(["$(n)"=>p.n_c_vOnm[:, n] for n in 1:n_new])
+        XLSX.writetable!(sheet, d)
+        # n_rhs_vOnm::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "n_rhs_vOnm")
+        d = DataFrame(["$(n)"=>p.n_rhs_vOnm[:, n] for n in 1:n_new])
+        XLSX.writetable!(sheet, d)
+        # n_cvonm_bM::Vector{Float64}
+        sheet = XLSX.addsheet!(xf, "n_cvonm_bM")
+        d = DataFrame("n_cvonm_bM"=>p.n_cvonm_bM)
         XLSX.writetable!(sheet, d)
         # n_c_Fstck::Array{Float64, 3}
         sheet = XLSX.addsheet!(xf, "n_c_Fstck")
@@ -1037,9 +1069,13 @@ function write_params(p::params, xlsxfname::String)
         sheet = XLSX.addsheet!(xf, "o_pay_bM")
         d = DataFrame("o_pay_bM" => p.o_pay_bM[:, 1])
         XLSX.writetable!(sheet, d)
-        # o_conm_bM::Array{Float64, 2}
-        sheet = XLSX.addsheet!(xf, "o_conm_bM")
-        d = DataFrame("o_conm_bM" => p.o_conm_bM[:, 1])
+        # o_cfonm_bM::Array{Float64, 2}
+        sheet = XLSX.addsheet!(xf, "o_cfonm_bM")
+        d = DataFrame("o_cfonm_bM" => p.o_cfonm_bM[:, 1])
+        XLSX.writetable!(sheet, d)
+        # o_cvonm_bM::Array{Float64, 2}
+        sheet = XLSX.addsheet!(xf, "o_cvonm_bM")
+        d = DataFrame("o_cvonm_bM" => p.o_cvonm_bM[:, 1])
         XLSX.writetable!(sheet, d)
         # o_fstck_ub::Array{Float64, 2}
         sheet = XLSX.addsheet!(xf, "o_fstck_ub")
@@ -1497,18 +1533,30 @@ function read_params(fname)
     r_ep1gcs_ub = sh[2:n_loc+1, 1]
     r_ep1gcs_ub = vec(r_ep1gcs_ub)
     r_ep1gcs_ub = convert(Vector{Float64}, r_ep1gcs_ub)
-    # r_c_Onm::Matrix{Float64}
-    sh = xf["r_c_Onm"]
-    r_c_Onm = sh[2:n_loc+1, 1:n_rtft]
-    r_c_Onm = convert(Matrix{Float64}, r_c_Onm)
-    # r_rhs_Onm::Matrix{Float64}
-    sh = xf["r_rhs_Onm"]
-    r_rhs_Onm = sh[2:n_loc+1, 1:n_rtft]
-    r_rhs_Onm = convert(Matrix{Float64}, r_rhs_Onm)
-    # r_conm_ub::Array{Float64, 2}
-    sh = xf["r_conm_ub"]
-    r_conm_ub = sh[2:n_loc+1, 1]
-    r_conm_ub = convert(Array{Float64, 2}, r_conm_ub)
+    # r_c_fOnm::Matrix{Float64}
+    sh = xf["r_c_fOnm"]
+    r_c_fOnm = sh[2:n_loc+1, 1:n_rtft]
+    r_c_fOnm = convert(Matrix{Float64}, r_c_fOnm)
+    # r_rhs_fOnm::Matrix{Float64}
+    sh = xf["r_rhs_fOnm"]
+    r_rhs_fOnm = sh[2:n_loc+1, 1:n_rtft]
+    r_rhs_fOnm = convert(Matrix{Float64}, r_rhs_fOnm)
+    # r_cfonm_ub::Array{Float64, 2}
+    sh = xf["r_cfonm_ub"]
+    r_cfonm_ub = sh[2:n_loc+1, 1]
+    r_cfonm_ub = convert(Array{Float64, 2}, r_cfonm_ub)
+    # r_c_vOnm::Matrix{Float64}
+    sh = xf["r_c_vOnm"]
+    r_c_vOnm = sh[2:n_loc+1, 1:n_rtft]
+    r_c_vOnm = convert(Matrix{Float64}, r_c_vOnm)
+    # r_rhs_vOnm::Matrix{Float64}
+    sh = xf["r_rhs_vOnm"]
+    r_rhs_vOnm = sh[2:n_loc+1, 1:n_rtft]
+    r_rhs_vOnm = convert(Matrix{Float64}, r_rhs_vOnm)
+    # r_cvonm_ub::Array{Float64, 2}
+    sh = xf["r_cvonm_ub"]
+    r_cvonm_ub = sh[2:n_loc+1, 1]
+    r_cvonm_ub = convert(Array{Float64, 2}, r_cvonm_ub)
     # r_e_c_ub::Array{Float64, 1}
     sh = xf["r_e_c_ub"]
     r_e_c_ub = sh[2:n_loc+1, 1]
@@ -1926,19 +1974,32 @@ function read_params(fname)
     n_ep1gcs_bM = sh[2:n_loc+1, 1]
     n_ep1gcs_bM = vec(n_ep1gcs_bM)
     n_ep1gcs_bM = convert(Array{Float64, 1}, n_ep1gcs_bM)
-    # n_c_Onm::Matrix{Float64}
-    sh = xf["n_c_Onm"]
-    n_c_Onm = sh[2:n_loc+1, 1:n_new]
-    n_c_Onm = convert(Matrix{Float64}, n_c_Onm)
-    # n_rhs_Onm::Matrix{Float64}
-    sh = xf["n_rhs_Onm"]
-    n_rhs_Onm = sh[2:n_loc+1, 1:n_new]
-    n_rhs_Onm = convert(Matrix{Float64}, n_rhs_Onm)
-    # n_conm_bM::Vector{Float64}
-    sh = xf["n_conm_bM"]
-    n_conm_bM = sh[2:n_loc+1, 1]
-    n_conm_bM = vec(n_conm_bM) 
-    n_conm_bM = convert(Vector{Float64}, n_conm_bM)
+    # n_c_fOnm::Matrix{Float64}
+    sh = xf["n_c_fOnm"]
+    n_c_fOnm = sh[2:n_loc+1, 1:n_new]
+    n_c_fOnm = convert(Matrix{Float64}, n_c_fOnm)
+    # n_rhs_fOnm::Matrix{Float64}
+    sh = xf["n_rhs_fOnm"]
+    n_rhs_fOnm = sh[2:n_loc+1, 1:n_new]
+    n_rhs_fOnm = convert(Matrix{Float64}, n_rhs_fOnm)
+    # n_cfonm_bM::Vector{Float64}
+    sh = xf["n_cfonm_bM"]
+    n_cfonm_bM = sh[2:n_loc+1, 1]
+    n_cfonm_bM = vec(n_cfonm_bM) 
+    n_cfonm_bM = convert(Vector{Float64}, n_cfonm_bM)
+    # n_c_vOnm::Matrix{Float64}
+    sh = xf["n_c_vOnm"]
+    n_c_vOnm = sh[2:n_loc+1, 1:n_new]
+    n_c_vOnm = convert(Matrix{Float64}, n_c_vOnm)
+    # n_rhs_vOnm::Matrix{Float64}
+    sh = xf["n_rhs_vOnm"]
+    n_rhs_vOnm = sh[2:n_loc+1, 1:n_new]
+    n_rhs_vOnm = convert(Matrix{Float64}, n_rhs_vOnm)
+    # n_cvonm_bM::Vector{Float64}
+    sh = xf["n_cvonm_bM"]
+    n_cvonm_bM = sh[2:n_loc+1, 1]
+    n_cvonm_bM = vec(n_cvonm_bM) 
+    n_cvonm_bM = convert(Vector{Float64}, n_cvonm_bM)
     # n_c_Fstck::Array{Float64, 3}
     sh = xf["n_c_Fstck"]
     n_c_Fstck = ones(n_loc, n_new, n_fstck)
@@ -2114,10 +2175,14 @@ function read_params(fname)
     sh = xf["o_pay_bM"]
     o_pay_bM = sh[2:n_loc+1, 1]
     o_pay_bM = convert(Array{Float64, 2}, o_pay_bM)
-    # o_conm_bM::Array{Float64, 2}
-    sh = xf["o_conm_bM"]
-    o_conm_bM = sh[2:n_loc+1, 1]
-    o_conm_bM = convert(Array{Float64, 2}, o_conm_bM)
+    # o_cfonm_bM::Array{Float64, 2}
+    sh = xf["o_cfonm_bM"]
+    o_cfonm_bM = sh[2:n_loc+1, 1]
+    o_cfonm_bM = convert(Array{Float64, 2}, o_cfonm_bM)
+    # o_cvonm_bM::Array{Float64, 2}
+    sh = xf["o_cvonm_bM"]
+    o_cvonm_bM = sh[2:n_loc+1, 1]
+    o_cvonm_bM = convert(Array{Float64, 2}, o_cvonm_bM)
     # o_fstck_ub::Array{Float64, 2}
     sh = xf["o_fstck_ub"]
     o_fstck_ub = sh[2:n_loc+1, 1:n_fstck] 
@@ -2291,8 +2356,9 @@ function read_params(fname)
               r_ep0_ub, r_chi, r_ep1ge_ub,
               r_sigma,
               r_ep1gce_ub,
-              r_ep1gcs_ub, r_c_Onm, r_rhs_Onm,
-              r_conm_ub,
+              r_ep1gcs_ub, 
+              r_c_fOnm, r_rhs_fOnm, r_cfonm_ub,
+              r_c_vOnm, r_rhs_vOnm, r_cvonm_ub,
               r_e_c_ub,
               r_loanFact, r_l0_ub, r_le_ub,
               r_Ann,
@@ -2328,8 +2394,9 @@ function read_params(fname)
               n_ep0_bM,
               n_chi, n_ep1ge_bM, n_sigma, n_ep1gce_bM,
               n_ep1gcs_bM,
-              n_c_Onm,
-              n_rhs_Onm, n_conm_bM, n_c_Fstck,
+              n_c_fOnm, n_rhs_fOnm, n_cfonm_bM,
+              n_c_vOnm, n_rhs_vOnm, n_cvonm_bM,
+              n_c_Fstck,
               n_rhs_Fstck,
               n_fstck_ub,
               n_Kmb,
@@ -2348,7 +2415,9 @@ function read_params(fname)
               o_ep1gce_bM,
               o_ep1gcs_bM, 
               o_ups_e_mt_in_ub,
-              o_pay_bM, o_conm_bM,
+              o_pay_bM,
+              o_cfonm_bM,
+              o_cvonm_bM,
               o_fstck_ub,
               o_x_in_ub,
               o_x_out_ub,

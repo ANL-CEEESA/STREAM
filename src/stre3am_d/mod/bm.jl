@@ -223,9 +223,12 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, r_fstck[i=P, j=P2, l=L, f=Nf])
     @variable(m, r_fstck_d_[i=P, j=P2, l=L, k=Kr, f=Nf; r_filter[l, k]] >= 0.0)
 
-    # operating and maintenance
-    @variable(m, r_conm_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
-    @variable(m, r_conm[i=P, j=P2, l=L]) 
+    # operating and maintenance fixed
+    @variable(m, r_cfonm_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    @variable(m, r_cfonm[i=P, j=P2, l=L]) 
+    # operating and maintenance variable
+    @variable(m, r_cvonm_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    @variable(m, r_cvonm[i=P, j=P2, l=L]) 
 
     # d083023
     # loan state
@@ -450,10 +453,14 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, n_fstck[i=P, j=P2, l=L, f=Nf])
     @variable(m, n_fstck_d_[i=P, j=P2, l=L, k=Kn, f=Nf; n_filter[l, k]] >= 0.0)
 
-    # operating and maintenance
-    @variable(m, n_conm_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0.0)  # 16
-    @variable(m, n_conm[i=P, j=P2, l=L], 
-              lower_bound=0.0, upper_bound=p.n_conm_bM[l])  # 17
+    # operating and maintenance fixed
+    @variable(m, n_cfonm_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0.0)  # 16
+    @variable(m, n_cfonm[i=P, j=P2, l=L], 
+              lower_bound=0.0, upper_bound=p.n_cfonm_bM[l])  # 17
+    # operating and maintenance variable
+    @variable(m, n_cvonm_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0.0)  # 16
+    @variable(m, n_cvonm[i=P, j=P2, l=L], 
+              lower_bound=0.0, upper_bound=p.n_cvonm_bM[l])  # 17
     
     # cost of electricity
     @variable(m, n_u_cost[i=P, j=P2, l=L])
@@ -470,11 +477,17 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # only true
     @variable(m, o_pay_d_[i=P, j=P2, l=L] >= 0.0)
     # k = 0 means on
-    @variable(m, o_conm[i=P, j=P2, l=L], lower_bound=0.0, 
-              upper_bound=p.o_conm_bM[l])
+    @variable(m, o_cfonm[i=P, j=P2, l=L], lower_bound=0.0, 
+              upper_bound=p.o_cfonm_bM[l])
     # only true
-    @variable(m, o_conm_d_[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, o_tconm_d_[i=P, j=P2, l=L, (sT, sF)])
+    @variable(m, o_cfonm_d_[i=P, j=P2, l=L] >= 0.0)
+    @variable(m, o_tcfonm_d_[i=P, j=P2, l=L, (sT, sF)])
+
+    @variable(m, o_cvonm[i=P, j=P2, l=L], lower_bound=0.0, 
+              upper_bound=p.o_cvonm_bM[l])
+    # only true
+    @variable(m, o_cvonm_d_[i=P, j=P2, l=L] >= 0.0)
+    @variable(m, o_tcvonm_d_[i=P, j=P2, l=L, (sT, sF)])
     #
     @variable(m, o_cp[i=P, j=P2, l=L, n=Nd], lower_bound=0.0)
               #, upper_bound=p.o_cp_bM)
@@ -727,6 +740,9 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # x_
     @constraint(m, exp_x_m_i0_[i=P, j=P2, l=L],
                 x_d_[i, j, l, sT] <= p.x_ub * y_e[i, j, l]
+               )
+    @constraint(m, exp_x_m_i3_[i=P, j=P2, l=L],
+                x_d_[i, j, l, sT] >= 1.0 * y_e[i, j, l]
                )
     # x_ (relax)
     @constraint(m, exp_x_m_i1_[i=P, j=P2, l=L],
@@ -1191,22 +1207,34 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # 76 
     # 76 #######################################################################
     ##
-    # -> operating and maintenance
-    # p.m_Onm, usd / year
-    @constraint(m, r_conm_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
-                r_conm_d_[i, j, l, k] == 
-                p.r_c_Onm[l, k] * r_cp_d_[i, j, l, k, key_node] + 
-                p.r_rhs_Onm[l, k] * y_r[i, j, l, k]
+    # -> (fixed) operating and maintenance
+    # p.m_fOnm, usd / year
+    @constraint(m, r_cfonm_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_cfonm_d_[i, j, l, k] == 
+                p.r_c_fOnm[l, k] * r_cpb_d_[i, j, l, k] + 
+                p.r_rhs_fOnm[l, k] * y_r[i, j, l, k]
                )
-    @constraint(m, r_conm_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
-                r_conm_d_[i, j, l, k] <= p.r_conm_ub[l] * y_r[i, j, l, k]
+    @constraint(m, r_cfonm_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_cfonm_d_[i, j, l, k] <= p.r_cfonm_ub[l] * y_r[i, j, l, k]
                )
-    @constraint(m, r_conm_s_e_[i=P, j=P2, l=L],
-                r_conm[i, j, l] == 
-                sum(r_conm_d_[i, j, l, k] for k in Kr if r_filter[l, k])
+    @constraint(m, r_cfonm_s_e_[i=P, j=P2, l=L],
+                r_cfonm[i, j, l] == 
+                sum(r_cfonm_d_[i, j, l, k] for k in Kr if r_filter[l, k])
                )
-
-
+    # -> (variable) operating and maintenance
+    # p.m_vOnm, usd / year
+    @constraint(m, r_cvonm_d_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_cvonm_d_[i, j, l, k] == 
+                p.r_c_vOnm[l, k] * r_cp_d_[i, j, l, k, key_node] + 
+                p.r_rhs_vOnm[l, k] * y_r[i, j, l, k]
+               )
+    @constraint(m, r_cvonm_m_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+                r_cvonm_d_[i, j, l, k] <= p.r_cvonm_ub[l] * y_r[i, j, l, k]
+               )
+    @constraint(m, r_cvonm_s_e_[i=P, j=P2, l=L],
+                r_cvonm[i, j, l] == 
+                sum(r_cvonm_d_[i, j, l, k] for k in Kr if r_filter[l, k])
+               )
     # 76 
     # 76 #######################################################################
     ##
@@ -1606,27 +1634,49 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @constraint(m, o_tpay_m0_i_[i=P, j=P2, l=L], # off
                 o_tpay_d_[i, j, l, sF] <= p.o_pay_bM[l] * (1 - y_o[i, j, l])
                )
-    # -> o&m
-    @constraint(m, o_conm_s_e_[i=P, j=P2, l=L],
-                o_conm[i, j, l] == o_conm_d_[i, j, l]
+    # -> (fixed) o&m
+    @constraint(m, o_cfonm_s_e_[i=P, j=P2, l=L],
+                o_cfonm[i, j, l] == o_cfonm_d_[i, j, l]
                )
-    @constraint(m, o_conm_d1_e_[i=P, j=P2, l=L],
-                o_conm_d_[i, j, l] == o_tconm_d_[i, j, l, sT]
+    @constraint(m, o_cfonm_d1_e_[i=P, j=P2, l=L],
+                o_cfonm_d_[i, j, l] == o_tcfonm_d_[i, j, l, sT]
                )
 
-    @constraint(m, o_conm_m_1_i_[i=P, j=P2, l=L], # on
-                o_conm_d_[i, j, l] <= p.o_conm_bM[l] * y_o[i, j, l]
+    @constraint(m, o_cfonm_m_1_i_[i=P, j=P2, l=L], # on
+                o_cfonm_d_[i, j, l] <= p.o_cfonm_bM[l] * y_o[i, j, l]
                )
     #
-    @constraint(m, o_tconm_m1_i_[i=P, j=P2, l=L],
-                o_tconm_d_[i, j, l, sT] <= p.o_conm_bM[l] * y_o[i, j, l]
+    @constraint(m, o_tcfonm_m1_i_[i=P, j=P2, l=L],
+                o_tcfonm_d_[i, j, l, sT] <= p.o_cfonm_bM[l] * y_o[i, j, l]
                )
-    @constraint(m, o_tconm_m0_i_[i=P, j=P2, l=L],
-                o_tconm_d_[i, j, l, sF] <= p.o_conm_bM[l] * (1 - y_o[i, j, l])
+    @constraint(m, o_tcfonm_m0_i_[i=P, j=P2, l=L],
+                o_tcfonm_d_[i, j, l, sF] <= p.o_cfonm_bM[l] * (1 - y_o[i, j, l])
                )
-    @constraint(m, o_tconm_s_e_[i=P, j=P2, l=L],
-                r_conm[i, j, l] == 
-                o_tconm_d_[i, j, l, sT] + o_tconm_d_[i, j, l, sF]
+    @constraint(m, o_tcfonm_s_e_[i=P, j=P2, l=L],
+                r_cfonm[i, j, l] == 
+                o_tcfonm_d_[i, j, l, sT] + o_tcfonm_d_[i, j, l, sF]
+               )
+    # -> (variable) o&m
+    @constraint(m, o_cvonm_s_e_[i=P, j=P2, l=L],
+                o_cvonm[i, j, l] == o_cvonm_d_[i, j, l]
+               )
+    @constraint(m, o_cvonm_d1_e_[i=P, j=P2, l=L],
+                o_cvonm_d_[i, j, l] == o_tcvonm_d_[i, j, l, sT]
+               )
+
+    @constraint(m, o_cvonm_m_1_i_[i=P, j=P2, l=L], # on
+                o_cvonm_d_[i, j, l] <= p.o_cvonm_bM[l] * y_o[i, j, l]
+               )
+    #
+    @constraint(m, o_tcvonm_m1_i_[i=P, j=P2, l=L],
+                o_tcvonm_d_[i, j, l, sT] <= p.o_cvonm_bM[l] * y_o[i, j, l]
+               )
+    @constraint(m, o_tcvonm_m0_i_[i=P, j=P2, l=L],
+                o_tcvonm_d_[i, j, l, sF] <= p.o_cvonm_bM[l] * (1 - y_o[i, j, l])
+               )
+    @constraint(m, o_tcvonm_s_e_[i=P, j=P2, l=L],
+                r_cvonm[i, j, l] == 
+                o_tcvonm_d_[i, j, l, sT] + o_tcvonm_d_[i, j, l, sF]
                )
     # 76 
     # 76 #######################################################################
@@ -2055,21 +2105,34 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # 76 
     # 76 #######################################################################
     ##
-    # -> operating and maintenance
-    # p.m_Onm by year
-    @constraint(m, n_conm_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
-                n_conm_d_[i, j, l, k] == 
-                (p.n_c_Onm[l, k] * n_cp_d_[i, j, l, k, key_node]
-                + p.n_rhs_Onm[l, k] * y_n[i, j, l, k])
+    # -> (fixed) operating and maintenance
+    # p.m_fOnm by year
+    @constraint(m, n_cfonm_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_cfonm_d_[i, j, l, k] == 
+                (p.n_c_fOnm[l, k] * n_c0_d_[i, j, l, k]
+                + p.n_rhs_fOnm[l, k] * y_n[i, j, l, k])
                )
-    @constraint(m, n_conm_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
-                n_conm_d_[i, j, l, k] <= p.n_conm_bM[l] * y_n[i, j, l, k]
+    @constraint(m, n_cfonm_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_cfonm_d_[i, j, l, k] <= p.n_cfonm_bM[l] * y_n[i, j, l, k]
                )
-    @constraint(m, n_conm_s_e_[i=P, j=P2, l=L],
-                n_conm[i, j, l] == 
-                sum(n_conm_d_[i, j, l, k] for k in Kn if n_filter[l, k])
+    @constraint(m, n_cfonm_s_e_[i=P, j=P2, l=L],
+                n_cfonm[i, j, l] == 
+                sum(n_cfonm_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
-
+    # -> (variable) operating and maintenance
+    # p.m_vOnm by year
+    @constraint(m, n_cvonm_d_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_cvonm_d_[i, j, l, k] == 
+                (p.n_c_vOnm[l, k] * n_cp_d_[i, j, l, k, key_node]
+                + p.n_rhs_vOnm[l, k] * y_n[i, j, l, k])
+               )
+    @constraint(m, n_cvonm_m_i_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
+                n_cvonm_d_[i, j, l, k] <= p.n_cvonm_bM[l] * y_n[i, j, l, k]
+               )
+    @constraint(m, n_cvonm_s_e_[i=P, j=P2, l=L],
+                n_cvonm[i, j, l] == 
+                sum(n_cvonm_d_[i, j, l, k] for k in Kn if n_filter[l, k])
+               )
     # 76 
     # 76 #######################################################################
     ##
@@ -2528,11 +2591,16 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
     sF = sT + 1 # p.sFal  # offline
 
     o_pay = m[:o_pay]
-    o_conm = m[:o_conm]
+    o_cfonm = m[:o_cfonm]
+    o_cvonm = m[:o_cvonm]
     n_pay = m[:n_pay]
-    n_conm = m[:n_conm]
+    n_cfonm = m[:n_cfonm]
+    n_cvonm = m[:n_cvonm]
     o_loan_last = m[:o_loan_last]
-    
+
+    n_ladd = m[:n_ladd]
+    r_loan_p = m[:r_loan_p]
+    e_loan_p = m[:e_loan_p]
     t_ret_cost = m[:t_ret_cost]  # 15
     n_loan_p = m[:n_loan_p]
 
@@ -2551,24 +2619,35 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
                (sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
                             for l in L) for j in P2) for i in P)
                 # 2 o&m
-                + sum(sum(sum(p.discount[i, j] * o_conm[i, j, l] 
+                + sum(sum(sum(p.discount[i, j] * o_cfonm[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                + sum(sum(sum(p.discount[i, j] * o_cvonm[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 3 loan new
                 + sum(sum(sum(p.discount[i, j] * n_pay[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 4 o&m new
-                + sum(sum(sum(p.discount[i, j] * n_conm[i, j, l] 
+                + sum(sum(sum(p.discount[i, j] * n_cfonm[i, j, l] 
+                              for l in L) for j in P2) for i in P)
+                + sum(sum(sum(p.discount[i, j] * n_cvonm[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 5 retirement
                 + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 6 last loan
                 + sum(p.discount[n_periods,n_subperiods]*
-                      o_loan_last[n_periods, l, sT] 
+                      o_loan_last[n_periods, l, sT]  + 
+                      # you could avoid having oloanlast if yo is 0 at the end
+                      # and cheat
+                      r_loan_p[n_periods, n_subperiods, l] + 
+                      e_loan_p[n_periods, n_subperiods, l]
                       for l in L)
                 # 7 last loan new
                 + sum(p.discount[n_periods,n_subperiods]*
-                      n_loan_p[n_periods,n_subperiods,l] 
+                      (n_loan_p[n_periods,n_subperiods,l]  + 
+                       # you could cheat by having new p at the end and aoviding
+                       # n_loan_p
+                       n_ladd[n_periods, n_subperiods, l])
                       for l in L)
                 # 8 elec
                 + sum(p.discount[i, j] * o_u_cost[i, j, l] 
@@ -2952,6 +3031,9 @@ function attachLocationBlock(m::Model, p::params, s::sets)
     n_cp = m[:n_cp]
     o_rcp = m[:o_rcp]
     n_cp_d_ = m[:n_cp_d_]
+    
+    o_ups_e_mt_in = m[:o_ups_e_mt_in]
+    n_ups_e_mt_in = m[:n_ups_e_mt_in]
     # 25
     # aggregate demand constraint
     # @constraint(m, ag_dem_l_link_i_[i=P, j=P2],
@@ -2973,8 +3055,10 @@ function attachLocationBlock(m::Model, p::params, s::sets)
     @constraint(m, ag_co2_l_link_i_,
                 # existing
                 sum(
-                    (-sum(o_ep1ge[i, j, l] for l in L) 
+                    (-sum(o_ep1ge[i, j, l] for l in L)
+                     -sum(o_ups_e_mt_in[i, j, l] for l in L)
                      -sum(n_ep1ge[i, j, l] for l in L)
+                     -sum(n_ups_e_mt_in[i, j, l] for l in L)
                     )*p.yr_subperiod 
                     for j in P2 for i in P)
                 # grid associated emissions
@@ -3074,9 +3158,11 @@ function attachBlockObjective(m::Model, p::params, s::sets,
     #
     #
     o_pay = m[:o_pay]
-    o_conm = m[:o_conm]
+    o_cfonm = m[:o_cfonm]
+    o_cvonm = m[:o_cvonm]
     n_pay = m[:n_pay]
-    n_conm = m[:n_conm]
+    n_cfonm = m[:n_cfonm]
+    n_cvonm = m[:n_cvonm]
     o_loan_last = m[:o_loan_last]
     
     t_ret_cost = m[:t_ret_cost]  # 15
@@ -3102,11 +3188,13 @@ function attachBlockObjective(m::Model, p::params, s::sets,
                    # 1 loan
                    sum(p.discount[i_, j] * o_pay[i_, j, l_] for j in P2)
                    # 2 o&m
-                   + sum(p.discount[i_, j] * o_conm[i_, j, l_] for j in P2)
+                   + sum(p.discount[i_, j] * o_cfonm[i_, j, l_] for j in P2)
+                   + sum(p.discount[i_, j] * o_cvonm[i_, j, l_] for j in P2)
                    # 3 loan new
                    + sum(p.discount[i_, j] * n_pay[i_, j, l_] for j in P2)
                    # 4 o&m new
-                   + sum(p.discount[i_, j] * n_conm[i_, j, l_] for j in P2)
+                   + sum(p.discount[i_, j] * n_cfonm[i_, j, l_] for j in P2)
+                   + sum(p.discount[i_, j] * n_cvonm[i_, j, l_] for j in P2)
                    # 5 retirement
                    + sum(p.discount[i_, j] * t_ret_cost[i_, j, l_]  for j in P2)
                    # 6

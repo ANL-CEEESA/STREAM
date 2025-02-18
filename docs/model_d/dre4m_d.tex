@@ -19,10 +19,14 @@
 \DeclareMathSymbol{\myvee}{\mathbin}{matha}{"5F}
 \newcommand{\myveebar}{\mathbin{\vcenter{\hbox{$ \underline{\mkern-2.4mu{\myvee}\mkern-2.4mu} $}}}}
 
+% need to address the node representaion
+%% including mass and energy balances
+% fuel is indexed by location
+% 
 %
 \begin{document}
 
-\title{\texttt{DRE4M} discrete version equations.}
+\title{\texttt{STREAM} discrete version equations.}
 \author{David Thierry \{dthierry@anl.gov\}}
 
 \date{\today}
@@ -52,6 +56,7 @@ divided into sub-periods. Sets are described in Table~\ref{tab:sets}.
         $\mathcal{P}$	& Period set $\left\{1,2,\dots,\mathtt{Nper}\right\}$, \\
         $\mathcal{P}_1$	& Sub-period set $\left\{1,2,\dots,\mathtt{NsubPer}\right\}$,\\
         $\mathcal{R}$ & Retrofit set $\left\{1,2,\dots,\mathtt{Nretrf}\right\}$,\\
+        $\mathcal{Nd}$ & Set of process nodes. \\
     \end{tabular}\label{tab:sets}
 \end{table}
 %

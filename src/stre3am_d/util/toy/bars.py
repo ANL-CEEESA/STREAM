@@ -109,19 +109,21 @@ def main():
     dnl = pd.read_csv(nlf)
     labn = dnl.iloc[:,0].to_list()
 
-    # plot_legend(rf, folder, colors, labr, labn)
+    x_label = "Period"
 
-    # plot_capacities(rf, folder, colors, labr, labn, xaxislabel="year")
-    # plot_cumulative_expansion(rf, folder, colors, xaxislabel="year")
-    # plot_ep1(rf, folder, colors, labr, labn, xaxislabel="year")
-    # plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel="year")
-    # plot_emisions(rf, folder, xaxislabel="year")
-    # plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_legend(rf, folder, colors, labr, labn)
+
+    plot_capacities(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_cumulative_expansion(rf, folder, colors, xaxislabel=x_label)
+    plot_ep1(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_emisions(rf, folder, xaxislabel=x_label)
+    plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=x_label)
     # # plot_pie_by_loc(rf, folder, colors, labr, labn)
-    # plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel="year")
-    # plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=x_label)
 
-    plot_capf(rf, folder, colors, labr, labn, xaxislabel="year")
+    plot_capf(rf, folder, colors, labr, labn, xaxislabel=x_label)
 
 # 80############################################################################
 def plot_emisions(rf, folder, xaxislabel=None):
@@ -167,7 +169,10 @@ def plot_emisions(rf, folder, xaxislabel=None):
 
     ymax = b.max().max()
     a.set_title("CO2 Emissions")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
@@ -227,7 +232,10 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
            label="Demand", lw=2, color="blue", ls="--", marker="*")
 
     a.set_title("(a) (STREAM) Cement Production/Demand")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonne/yr")
     a.set_ylim(top=ymax*1.01)
 
@@ -271,7 +279,10 @@ def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
 
 
     a.set_title("Electricity")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("MMBTU/yr")
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
@@ -357,7 +368,11 @@ def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = base.max().max()
     a.set_title("Capital")
-    a.set_xlabel("Year")
+
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("USD/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
@@ -411,7 +426,10 @@ def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
     ymax = b.max()
 
     a.set_title("(b) (STREAM) Scope 1 Cement Emission (em.)")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
@@ -466,7 +484,10 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
     ymax = b.max()
 
     a.set_title("(c) (STREAM) Cement Electricity consumption")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("MMBTU/yr")
     a.set_ylim(top=ymax*1.01)
 
@@ -509,7 +530,10 @@ def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
         b += de.iloc[:, col]
 
     a.set_title("Active expansion capacity")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonne/yr")
 
     # tick labels
@@ -590,7 +614,10 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
            label="Demand", lw=2, color="darkred", ls="--", marker="*")
 
     a.set_title("(a) (STREAM) Cement Production/Demand")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonne/yr")
     a.set_ylim(top=ymax*1.01)
 
@@ -851,7 +878,10 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max().max()
     a.set_title("Pre/Post capture CO2 Emissions")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
@@ -934,7 +964,10 @@ def plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max().max()
     a.set_title("(b) Captured CO2")
-    a.set_xlabel("Year")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
     a.set_ylabel("tonneCO2/yr")
     a.set_ylim(top=ymax*1.01)
     # tick labels
@@ -1016,11 +1049,13 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
     for i in range(1, dcf.shape[1]):
         name = dcf.columns[i]
         node = name.split("_")[1]
-        if node == "3":
+        if node == "2":
             a.step(xvals, dcf.iloc[:, i], ls="--", lw=0.5, marker=".", label=f"plnt={i}")
 
-    a.set_title("(STREAM) Cap Fact Node=3 (Existing)")
-    a.set_xlabel("Year")
+    a.set_title("(STREAM) Cap Fact Node=2 (Existing)")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
 
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
@@ -1047,11 +1082,13 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
     for i in range(1, dcf.shape[1]):
         name = dcf.columns[i]
         node = name.split("_")[1]
-        if node == "3":
+        if node == "2":
             a.step(xvals, dcf.iloc[:, i], ls="--", lw=0.5, marker=".", label=f"plnt={i}")
 
-    a.set_title("(STREAM) Cap Fact Node=3 (New)")
-    a.set_xlabel("Year")
+    a.set_title("(STREAM) Cap Fact Node=2 (New)")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
 
     # tick labels
     a.xaxis.set_major_formatter("{x:.0f}")
