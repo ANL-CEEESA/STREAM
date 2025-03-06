@@ -228,7 +228,8 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
                 rcp .= 0.0
                 rcp_act .= 0.0
             else
-                continue
+                drcp_d[:, "k_$(k)_l_$(l)"] = rcp
+                drcp_d_act[:, "k_$(k)_l_$(l)"] = rcp_act
             end
         end
     end
@@ -257,8 +258,8 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
                                            for n in s.Nd if p.nd_en_fltr[n]) * yo
                     end
                 end
-            else
-                continue
+            #else
+            #    continue
             end
         end
         drcp[:, "k_$(k)"] = rcp_acc
@@ -297,7 +298,7 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
                 dncp_d[:, "k_$(k)_l_$(l)"] = ncp
                 ncp .= 0.0
             else
-                continue
+                dncp_d[:, "k_$(k)_l_$(l)"] = ncp
             end
         end
     end
@@ -321,8 +322,8 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
                         nu_acc[row] += sum(value(m[:n_u_d_][i, j, l, k, n]) for n in s.Nd if p.nd_en_fltr[n])
                     end
                 end
-            else
-                continue
+            #else
+            #    continue
             end
             dncp[:, "k_$(k)"] = ncp_acc
             dnep1[:, "k_$(k)"] = nep1_acc
@@ -438,11 +439,9 @@ function write_switches(m::JuMP.Model, p::params, s::sets, fname::String)
                         t += 1
                     end
                 end
-                dyr[:, "k_$(k)_l_$(l)"] = yrv
-                yrv .= 0.0
-            else
-                continue
             end
+            dyr[:, "k_$(k)_l_$(l)"] = yrv
+            yrv .= 0.0
         end
     end
     dyn = DataFrame("yr"=>yr)
@@ -457,11 +456,10 @@ function write_switches(m::JuMP.Model, p::params, s::sets, fname::String)
                         t += 1
                     end
                 end
-                dyn[:, "k_$(k)_l_$(l)"] = ynv
-                ynv .= 0.0
-            else
-                continue
             end
+            #println("k_$(k)_l_$(l)")
+            dyn[:, "k_$(k)_l_$(l)"] = ynv
+            ynv .= 0.0
         end
     end
     CSV.write(fname*"/"*"dyr.csv", dyr)
@@ -732,7 +730,7 @@ function write_fuel_results(
                         end
                     end
                 else
-                    continue
+                    continue # ToDo: review this
                 end
             end
             dnehfd[!, Symbol(ns[f])] = nehfd
