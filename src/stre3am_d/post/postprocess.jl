@@ -408,7 +408,8 @@ function write_sinfo(s::sets, p::params, fname::String)
       "n_loc"=>[length(s.L)], 
       "n_rtft"=>[length(s.Kr)], 
       "n_new"=>[length(s.Kn)],
-      #"n_fu"=>[length(s.Fu)],
+      "Fu_r"=>[length(s.Fu_r)],
+      "Fu_n"=>[length(s.Fu_n)],
       "n_p"=>[length(s.P)],
       "n_p2"=>[length(s.P2)],
       "sf_cap"=>[p.sf_cap],
@@ -928,6 +929,98 @@ function write_filters(p, s, folder)
 end
 
 
+#####
+
+function write_fuel_res_v1(m, p, s, fname)
+    yr = generate_yr_range(p)
+    Fu_r = s.Fu_r 
+    Fu_n = s.Fu_n
+    yo = value.(m[:y_o])
+    r_ff = []
+    n_ff = []
+    
+    for l in s.L
+        push!(r_ff, zeros(p.n_periods, p.n_subperiods, length(Fu_r[l])))
+        push!(n_ff, zeros(p.n_periods, p.n_subperiods, length(Fu_n[l])))
+    end
+    #
+    for l in s.L
+        rf = r_ff[l]
+        for i in s.P 
+            for j in s.P2 
+                for f in Fu_r[l]
+                    rf[i, j, f] = sum(value(m[:r_ehf][i, j, l, f, n]) for n in s.Nd if p.nd_en_fltr[n])*yo[i,j,l]
+                end
+                for f in Fu_n[l]
+                    rn = n_ff[l]
+                    rn[i, j, f] = sum(value(m[:n_ehf][i, j, l, f, n])
+                                      for n in s.Nd if p.nd_en_fltr[n])
+                end
+            end 
+        end 
+    end
+    
+    r_df = [DataFrame("yr"=>yr) for l in s.L]
+    n_df = [DataFrame("yr"=>yr) for l in s.L]
+
+    for l in s.L
+        for f in Fu_r[l]
+            rf = r_ff[l][:, :, f]
+            rf = reshape(rf', length(rf))
+            r_df[l][:, "f_$(f)"] = rf
+        end
+        for f in Fu_n[l]
+            nf = n_ff[l][:, :, f]
+            nf = reshape(nf', length(nf))
+            n_df[l][:, "f_$(f)"] = nf
+        end
+
+        CSV.write(fname*"/"*"dr_f_$(l).csv", r_df[l])
+        CSV.write(fname*"/"*"dn_f_$(l).csv", n_df[l])
+        
+        #CSV.write(fname*"/"*"ou_l.csv", dou)
+    end
+
+end
+
+function write_heat_res_v1(m, p, s, fname)
+    yr = generate_yr_range(p)
+    yo = value.(m[:y_o])
+    
+    r_h = zeros(p.n_periods, p.n_subperiods, p.n_location)
+    n_h = zeros(p.n_periods, p.n_subperiods, p.n_location)
+    #
+    for i in s.P 
+        for j in s.P2 
+            for l in s.L
+                r_h[i, j, l] = sum(value(m[:r_eh][i, j, l, n]) for n in s.Nd if p.nd_en_fltr[n])*yo[i,j,l]
+                n_h[i, j, l] = sum(value(m[:n_eh][i, j, l, n]) for n in s.Nd if p.nd_en_fltr[n])
+            end 
+        end 
+    end
+    
+    r_df = DataFrame("yr"=>yr)
+    n_df = DataFrame("yr"=>yr)
+
+    for l in s.L
+        rf = r_h[:, :, l]
+        rf = reshape(rf', length(rf))
+        r_df[:, "l_$(l)"] = rf
+        nf = n_h[:, :, l]
+        nf = reshape(nf', length(nf))
+        n_df[:, "l_$(l)"] = nf
+
+    end
+    CSV.write(fname*"/"*"drh.csv", r_df)
+    CSV.write(fname*"/"*"dnh.csv", n_df)
+
+end
+
+
+#####
+#
+#
+#
 """
     postprocess_d(m::JuMP.Model, p::params, s::sets, fname::String)
 
@@ -960,8 +1053,10 @@ function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     write_emission_plant(m, p, s, folder)
     write_tech_labels(m, p, s, f0, folder)
     write_filters(p, s, folder)
+    
+    write_fuel_res_v1(m, p, s, folder)
+    write_heat_res_v1(m, p, s, folder)
 
     compute_utilization_rates(m, p, s, folder)
     return folder
 end
-
