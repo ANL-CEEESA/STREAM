@@ -148,14 +148,17 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     # d082923
     # expansion
+    ## expansion binary (1 if expansion true)
     @variable(m, y_e[i=P, j=P2, l=L], Bin, upper_bound=1.0)  
-    # 1 if yes expand else no
+    ## disaggregated capacity
     @variable(m, e_c_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0)
+    ## expansion capacity
     @variable(m, e_c[i=P, j=P2, l=L])
-
+    ## expansion loan
     @variable(m, e_l[i=P, j=P2, l=L], lower_bound=0.0, upper_bound=p.e_l_ub[l])
-
+    ## expansion factor
     @variable(m, 0.0 <= x[i=P, l=L] <= p.x_ub) # this should be int, dissag over P
+    ## disaggregated expansion factor
     @variable(m, x_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0)
     
     # d082223
