@@ -10,7 +10,7 @@ interface between model and solver. `stre3am` is subject to the terms of the
 [3-Clause BSD License](https://opensource.org/license/BSD-3-clause/).
 
 
-<p class="aligncenter"> <img src="../img/dre4mnoback.svg" width="20%" height="20%"
+<p class="aligncenter"> <img src="../img/2025_logo.svg" width="20%" height="20%"
 title="stre3am logo"> </p>
 
 ## Installation

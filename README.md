@@ -3,16 +3,15 @@
 
 
 
-<p class="aligncenter"> <img src="./docs/docs/img/2025_logo.png" width="40%"
-height="40%" title="stre3am fr"> </p>
+<p class="aligncenter"> <img src="./docs/docs/img/2025_logo.png" width="40%" height="40%" title="stre3am fr"> </p>
 
 The Strategic Technology Roadmapping and Energy, Environmental, and Economic
-Analysis Model– STREAM – is an optimization-based modeling tool and analysis
-framework to assist with strategic planning and technology investments of the
-industrial sector. This open-source framework is written in Julia using JuMP
-objects, which enables users to model future “pathways” for incumbent and future
-production technologies, fuels and energy carriers, emissions, and other impacts
-from industries as they transform in pursuit of a robust, competitive,
+Analysis Model **STRE<sup>3</sup>AM** is an optimization-based modeling tool and
+analysis framework to assist with strategic planning and technology investments
+of the industrial sector. This open-source framework is written in Julia using
+JuMP objects, which enables users to model future *pathways* for incumbent and
+future production technologies, fuels and energy carriers, emissions, and other
+impacts from industries as they transform in pursuit of a robust, competitive,
 resilient, and sustainable manufacturing sector. The model starts with an
 initial stock of industrial production technologies and assets at a facility
 level or an aggregated national level, and then determines pathways that
@@ -49,8 +48,8 @@ objects.
 
 ## License
  
-STRE<sup>3</sup>AM (`stream`) is licensed under the 3-Clause BDS licence.
-Additionally, STRE<sup>3</sup>AM (`stream`) utilizes several dependencies, which
+STRE<sup>3</sup>AM (`stre3am`) is licensed under the 3-Clause BDS licence.
+Additionally, STRE<sup>3</sup>AM (`stre3am`) utilizes several dependencies, which
 have their own licences. Please refer to their respective repositories for more
 information about the licenses. 
 
