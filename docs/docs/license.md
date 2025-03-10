@@ -1,7 +1,8 @@
 Copyright (c) 2023, UChicago Argonne, LLC
 All Rights Reserved
 
-## Software Name: DRE4M: Decarbonization Roadmapping and Energy, Environmental, Economic, and Equity Analysis Model
+## Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model
+
 
 By: Argonne National Laboratory
 

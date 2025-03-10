@@ -162,13 +162,13 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, x_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0)
     
     # d082223
-    # capacity
+    ## retrofit capacity
     @variable(m, r_cp[i=P, j=P2, l=L, n=Nd])
     # retrofit capacity disagg
-
+    ## dis. retrofit capacity
     @variable(m, r_cp_d_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]])    
     @variable(m, cpb[i=P, j=P2, l=L] >= 0.0)  # base capacity
-    # base capacity disagg
+    ## base capacity disagg
     @variable(m, r_cpb_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]] >= 0.0)
     # surplus
     

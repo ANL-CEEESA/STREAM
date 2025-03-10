@@ -1,7 +1,7 @@
 
 # Model
 
-This section provides a shortcut description of the model behind `dre4m`. For
+This section provides a shortcut description of the model behind `stre3am`. For
 the purpose of laying out the core concepts, notation has been simplified from
 the original paper.
 The problem behind the diversification of the technology of a sector can be
@@ -49,10 +49,10 @@ in the model. Refer to the manuscript for more details.
 
 ## Core: asset balance constraints
 
-The main component of `dre4m` is the set of variables and constraints that
+The main component of `stre3am` is the set of variables and constraints that
 represent the changes to the technology asset makeup over time. 
-Any case study for `dre4m` requires a set of *initial* assets. Then, for the
-specified time horizon, the model within `dre4m` would find the appropriate set
+Any case study for `stre3am` requires a set of *initial* assets. Then, for the
+specified time horizon, the model within `stre3am` would find the appropriate set
 of retirements, and retrofitting decisions for the existing assets. Moreover,
 it can also decide to deploy new capacity from a technology portfolio. 
 
@@ -163,6 +163,6 @@ $$
 
 ## Concluding remarks
 
-It is encouraged to refer to the `dre4m` manuscript where the complete model is
+It is encouraged to refer to the `stre3am` manuscript where the complete model is
 laid out. This page is a brief summary of some core aspects of the model.
 

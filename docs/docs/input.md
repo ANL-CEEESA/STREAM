@@ -1,6 +1,6 @@
 # Input data
 
-`dre4m` uses an excel file as input, Refer to the `./data/prototype.xlsx` file
+`stre3am` uses an excel file as input, Refer to the `./data/prototype.xlsx` file
 for a blank protoype of the input. 
 
 There are a number of sheets in the prototype file. Their description is given
@@ -16,7 +16,7 @@ in the following table
 ## Reference sheet
 
 The *reference* sheet contains the cell location of the main components of the
-data-structures in `dre4m`. 
+data-structures in `stre3am`. 
 Data inputs typically are given in matrix, vector, or scalar form. Matrices and
 vectors require 2 addresses; matrices use upper-left and bottom-right corners
 coordinates, whereas vectors use the first and last element coordinates. 
