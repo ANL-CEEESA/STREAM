@@ -1,4 +1,4 @@
-\documentclass{amsart}
+\documentclass{amsbook}
 
 \usepackage[english]{babel}
 \usepackage{amsmath}
@@ -19,6 +19,8 @@
 \DeclareMathSymbol{\myvee}{\mathbin}{matha}{"5F}
 \newcommand{\myveebar}{\mathbin{\vcenter{\hbox{$ \underline{\mkern-2.4mu{\myvee}\mkern-2.4mu} $}}}}
 
+\newcommand{\stream}{\texttt{STRE$^{3}$AM}}
+
 % need to address the node representaion
 %% including mass and energy balances
 % fuel is indexed by location
@@ -26,9 +28,12 @@
 %
 \begin{document}
 
-\title{\texttt{STREAM} discrete version equations.}
-\author{David Thierry \{dthierry@anl.gov\}}
-
+\title{\stream{} discrete version equations.}
+\author{David Thierry}
+\address{Energy Systems and Infrastructure Analysis Division\\
+Argonne National Laboratory\\
+9700 S Cass Ave., Lemont, IL}
+\email{dthierry at Argonne}
 \date{\today}
 \maketitle
 
@@ -36,11 +41,11 @@
 %
 The discrete version of the model maintains variables that are a combination of
 continuous and discrete. Continuous variables are associated with quantities
-that can be measured, e.g.\ plant capacity, whereas discrete variables are
+that can be measured, e.g.\ plant capacity, fuel, etc., whereas discrete variables are
 associated with a state or transition of the plant. 
 %
 In the model both kinds of variables are mainly indexed by time and
-location, and subsequently by technology, e.g.\ retrofit. 
+location, technology, e.g.\ retrofit, and node. 
 %
 Time is sliced into periods of equal size, and similarly each one of them
 divided into sub-periods. Sets are described in Table~\ref{tab:sets}.
@@ -49,28 +54,43 @@ divided into sub-periods. Sets are described in Table~\ref{tab:sets}.
     \caption{Sets.}
     \begin{tabular}{@{}ll@{}}
         $\mathcal{K}$ & \textit{Generic} technology set,\\
+        $\mathcal{K}_N$ & New plant tech.\ set $\left\{1,2,\dots,\mathtt{Nnew}\right\}$,\\
+        $\mathcal{K}_R$ & Retrofit tech.\ set $\left\{1,2,\dots,\mathtt{Nretrf}\right\}$,\\
         $\mathcal{F}$ & Fuels set.\\
         $\mathcal{F}_1$	& Feed-stocks set.\\
         $\mathcal{L}$ & Locations set,\\
-        $\mathcal{N}$ & New plant set $\left\{1,2,\dots,\mathtt{Nnew}\right\}$,\\
+        $\mathcal{N}$ & Set of process nodes. \\
         $\mathcal{P}$	& Period set $\left\{1,2,\dots,\mathtt{Nper}\right\}$, \\
         $\mathcal{P}_1$	& Sub-period set $\left\{1,2,\dots,\mathtt{NsubPer}\right\}$,\\
-        $\mathcal{R}$ & Retrofit set $\left\{1,2,\dots,\mathtt{Nretrf}\right\}$,\\
-        $\mathcal{Nd}$ & Set of process nodes. \\
     \end{tabular}\label{tab:sets}
 \end{table}
 %
 
 Variables are usually written in \texttt{monospace} style, and have a prefix.
-Four types of prefixes are used throughout this manuscript \texttt{O},
-\texttt{R}, \texttt{N}, and \texttt{E}, which signal online, retrofit, new, and
-expansion state. These are listed in Table~\ref{tab:vars}. Parameters follow
-similar notation, except when they apply globally and thus no prefix is
-specified, e.g.\ \texttt{CelecR} the cost of electricity, which applies to all
-plants regardless of kind. Parameters are thus listed in Table~\ref{tab:params}. 
+Four types of prefixes are used throughout this manuscript \texttt{o},
+\texttt{r}, \texttt{n}, and \texttt{e}, which signal online, retrofit, new, and
+expansion state, e.g.\ $\mathtt{n\_u}_{ijln}$ denotes the electricity consumption
+per year in period $i$, subperiod $j$, location $l$, and node $n$. The prefixes
+are listed in Table~\ref{tab:prefixes}. 
+\begin{table}[h]
+    \caption{Variable name prefixes. These are used to denote variables in
+    different contexts, e.g.\ the \texttt{eh} variable can be \texttt{r\_eh} or
+    \texttt{n\_eh}.
+    }
+    \begin{tabular}{@{}ll@{}}
+        \texttt{e} & expansion variable \\
+        \texttt{n} & new plant variable \\
+        \texttt{r} & retrofit plant variable \\
+        \texttt{o} & online variable \\
+    \end{tabular}\label{tab:prefixes}
+\end{table}
+Parameters follow similar notation, except when they apply globally and thus no
+prefix is specified, e.g.\ \texttt{CelecR} the cost of electricity, which
+applies to all plants regardless of kind. Variables and parameters listed in
+Tables~\ref{tab:vars} and~\ref{tab:params}. 
 %
 \begin{longtable}[c]{@{}ll@{}}
- \caption{Variables.\label{tab:vars}}\\
+ \caption{Variables.\label{tab:vars}.}\\
     $\mathtt{annCost}$	& Annuity, \\
     $\mathtt{cap}$	& Plant capacity, \\
     $\mathtt{cOnM}$	& O\&M cost, \\
@@ -79,12 +99,12 @@ plants regardless of kind. Parameters are thus listed in Table~\ref{tab:params}.
     $\mathtt{EcOnM}$ & Exp. O\&M cost, \\
     $\mathtt{eh}$	& Heat, \\
     $\mathtt{ehOns}$	& Heat on-site (elec.), \\
-    $\mathtt{ehCo2}$	& Fuel CO2, \\
-    $\mathtt{ehOnsCo2}$	& Fuel CO2 (elec.), \\
+    $\mathtt{ehEm}$	& Fuel Em., \\
+    $\mathtt{ehOnsEm}$	& Fuel Em.\ (elec.), \\
     $\mathtt{EovNc}$ & Exp.\ overnight cap.\ cost, \\
-    $\mathtt{ep0}$	& Total plant CO2, \\
-    $\mathtt{ep1gce}$	& Captured-emitted CO2, \\
-    $\mathtt{ep1gcs}$	& Captured-stored CO2, \\
+    $\mathtt{ep0}$	& Total plant Em., \\
+    $\mathtt{ep1gce}$	& Captured-emitted Em., \\
+    $\mathtt{ep1gcs}$	& Captured-stored Em., \\
     $\mathtt{fstk}$	& Feedstock, \\
     $\mathtt{fu}$	& Fuel, \\
     $\mathtt{fuOns}$	& Fuel on-site (elec.), \\
@@ -96,7 +116,7 @@ plants regardless of kind. Parameters are thus listed in Table~\ref{tab:params}.
     $\mathtt{NcFuel}$ & New plant fuel cost, \\
     $\mathtt{NcElec}$ & New plant fuel cost, \\
     $\mathtt{NcCcus}$ & New plant trans.\& storage cost, \\
-    $\mathtt{Nep1ge}$ & New CO2 emitted, \\
+    $\mathtt{Nep1ge}$ & New Em.\ emitted, \\
     $\mathtt{Nloan}$	& New plant loan balance, \\
     $\mathtt{Nladd}$	& New plant added loan, \\
     $\mathtt{NovNc}$ & New overnight cost, \\
@@ -181,9 +201,9 @@ plants regardless of kind. Parameters are thus listed in Table~\ref{tab:params}.
     $\delta$ & Discount factor, \\
 \end{longtable}
 %
-Finally, as described in subsequent sections, discrete decisions are expressed
-with \emph{True, False} (Boolean) valued variables, which can be translated into
-\emph{0, 1} (Binary) variables. These are listed in Table~\ref{tab:bools}.
+Finally, discrete decisions are expressed with \emph{True, False} (Boolean)
+valued variables, which can be transformed into \emph{0, 1} (Binary) variables.
+These are listed in Table~\ref{tab:bools}.
 %
 \begin{table}[h]
     \caption{Discrete variables Boolean // binary.}
@@ -204,105 +224,210 @@ with \emph{True, False} (Boolean) valued variables, which can be translated into
 \end{table}
 %
 
-\section{Characteristic system (no expansion).}\label{sec:char_sys}
+\section{Characteristic node system}\label{sec:char_sys}
 %
-It is assumed that most quantities relevant to the plant, e.g.\ heat,
-electricity, etc.\ are either \emph{linear} function of a few key variables,
-e.g.\ capacity, or are derived from other, e.g.\ fuel emission which is derived
-from fuel consumed.  Let us consider the plant capacity $\text{cap}_{i,j,l}$ for
-an arbitrary period, sub-period, and location.  For this section it is assumed
-that no expansion is executed on the plant, i.e.
-$\text{cap}_{i,j,l}=\text{c0}_{l}$.  Then, subset of the variables is directly
-associated with capacity as follows:
+Plant or assets have complex processes which can be seen as links between flows
+of materials and energy between equipments or operations that generate products
+of interest.\ \stream{} can partially represent details about this process in an
+effort to have a base level of complexity.  The current version of \stream{}
+uses a network of states and tasks, where the states can represent input
+materials, intermediate products, final product(s), and the tasks represent
+actions that transform the states.  In \stream{} the tasks can be a one-to-one
+match between the physical process or \textit{aggregated} tasks in-between two
+key states.  In other words, the degree of representation is contingent upon the
+purpose of the analysis and data availability. Therefore, for every task node
+there will be heat, electricity, and material requirements. These are a
+\emph{linear} function of the \emph{active} capacity. \emph{Capacity} variables 
+are considered for each node and these reflect the measure of the node output. 
+Let us consider three key capacity aspects for every node, namely the
+\emph{installed}, \emph{active}, and \emph{lower-bound} capacities. These are
+related through the following inequality,
+\begin{equation}\label{eq:cap_ineq}
+    \mathtt{cap\_b}_{i,j,l} \text{lb\_fac}_{l} 
+    \leq \mathtt{cap}_{i,j,l,\text{key\_node}} 
+    \leq \mathtt{cap\_b}_{i,j,l} \text{kkey}_{n},
+\end{equation}
+%
+where $\mathtt{cap\_b}$, $\mathtt{cap}$ are the installed and active capacity,
+and lb\_fac and kkey represent the lower-bound factor and the key material
+ratio. Inequality~\eqref{eq:cap_ineq} allows $\mathtt{cap}$ to freely float
+in-between both sides of the equation such that each node can have varying
+capacity.  
+
+The \texttt{cap} variable is used as the basis for every other relevant quantity
+for every task node, period, location, etc. These are displayed in the following
+equations,
 %
 \begin{align}\label{eq:eqset1}
-    \mathtt{eh}_{ijl} &= \mathtt{Hi}_{ijl} \mathtt{cap}_{ijl} 
-    + \mathtt{hiRhs}_{ijl}, \\
+    & \text{(heat)}  \notag \\
+    \mathtt{eh}_{i,j,l,n} &= \mathtt{Hi}_{i,j,l,n} \mathtt{cap}_{i,j,l,n} 
+    + \mathtt{hiRhs}_{i,j,l,n}  \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N} \\
     %
-    \mathtt{u}_{ijl}  &= 
-    \mathtt{Ui}_{ijl}\left(1-\mathtt{uOnsF}\right)\mathtt{cap}_{ijl} 
-    + \mathtt{UiRhs}_{ijl} \left(1 - \mathtt{uOnsF}\right), \\
+    & \text{(electricity)}  \notag \\
+    \mathtt{u}_{i,j,l,n}  &= 
+    \mathtt{Ui}_{i,j,l,n}\left(1-\mathtt{uOnsF}\right)\mathtt{cap}_{i,j,l,n} 
+    + \mathtt{UiRhs}_{i,j,l,n} \left(1 - \mathtt{uOnsF}\right) \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N} \\
     % onsite elec
-    \mathtt{uOns}_{ijl}  &= 
-    \mathtt{Ui}_{ijl}  \mathtt{uOnsF} \; 
-    \mathtt{cap}_{i,j,l} + \mathtt{uRhs}_{i,j,l} \mathtt{uOnsF}, \\
+    & \text{(onsite elec.)} \notag \\
+    \mathtt{uOns}_{i,j,l,n} &= 
+    \mathtt{Ui}_{i,j,l,n}  \mathtt{uOnsF} \; 
+    \mathtt{cap}_{i,j,l} + \mathtt{uRhs}_{i,j,l} \mathtt{uOnsF} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N} \\
     %
-    \mathtt{fstk}_{ijlf}  &= 
-    \mathtt{fstkR}_{ijlf}  
-    \mathtt{cap}_{ijl} + \mathtt{fstkRhs}_{ijlf},\; \forall f \in \mathcal{F}_1, 
-    \\
+    & \text{(feedstocks)} \notag \\
+    \mathtt{fstk}_{ijlnf} &= 
+    \mathtt{fstkR}_{ijlnf}  
+    \mathtt{cap}_{i,j,l,n} + \mathtt{fstkRhs}_{ijlnf}  \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N},
+    \forall f \in \mathcal{F}_1, \\
     %
-    \mathtt{prCo2}_{i,j,l} &= \mathtt{PrCoR}_{i,j,l} \mathtt{cap}_{i,j,l} 
-    + \mathtt{PrCoRhs}_{i,j,l}, \\
+    & \text{(proc.\ impacts)} \notag \\
+    \mathtt{prImp}_{i,j,l,n} &= \mathtt{PrCoR}_{i,j,l,n} \mathtt{cap}_{i,j,l,n} 
+    + \mathtt{PrCoRhs}_{i,j,l,n} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N} \\
     %
-    \mathtt{cOnM}_{i,j,l} &= 
-    \mathtt{cOnMr}_{i,j,l} \mathtt{cap}_{i,j,l} +
-    \mathtt{cOnMrhs}_{i,j,l},
-    \\
+    & \text{(O \& M)} \notag \\
+    \mathtt{cOnM}_{i,j,l,n} &= 
+    \mathtt{cOnMr}_{i,j,l,n} \mathtt{cap}_{i,j,l,n} +
+    \mathtt{cOnMrhs}_{i,j,l,n} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N}, \\
     %
-    \mathtt{ovNc}_{i,j,l} &= \mathtt{OvNcF}_{i,j,l} \mathtt{cap}_{i,j,l}
-    + \mathtt{OvNcRhs}_{i,j,l}, \\
-    & \forall \; i \in \mathcal{P},j \in \mathcal{P}_1 ,
-    l \in \mathcal{L}, \notag
+    & \text{(capital)} \notag \\
+    \mathtt{ovNc}_{i,j,l,n} &= \mathtt{OvNcF}_{i,j,l,n} \mathtt{cap}_{i,j,l,n}
+    + \mathtt{OvNcRhs}_{i,j,l,n} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1,
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N}, 
 \end{align}
 %
 where the variables on the left-hand-sides are respectively, heat, electricity,
-on-site electricity, feed-stocks, non-fuel emission, O\&M cost, and overnight
-capital cost.  Furthermore, the coefficients on the right are the per unit of
-capacity rates, and the ``right-hand-side''\footnote{In most cases these
-right-hand-sides are equal to zero.}.
+on-site electricity, feed-stocks, non-fuel process impacts, O\&M cost, and
+overnight capital cost. Furthermore, the coefficients on the right are the per
+unit of capacity rates, e.g.\ MMBTU/Tonne/yr, and the
+``right-hand-side''\footnote{In most cases these right-hand-sides are equal to
+zero.}.
 %
 The previous quantities then enable the calculation of the remaining variables
 in the following way,
 %
 \begin{align}\label{eq:eqset2}
-    \mathtt{fu}_{i,j,l,f} &= 
-    \mathtt{Ffr}_{i,j,l,f} \mathtt{eh}_{i,j,l}, \\
+    & \text{(fuel)} \notag \\
+    \mathtt{fu}_{i,j,l,f,n} &= 
+    \mathtt{Ffr}_{i,j,l,f,n} 
+    \mathtt{eh}_{i,j,l,n} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N}\\
     %
-    \mathtt{ehOns}_{i,j,l} &= 
-    \mathtt{OnsHr}_{i,j,l} \mathtt{uOns}_{i,j,l} + \mathtt{ehOnsRhs}_{i,j,l}, \\
+    & \text{(elec.\ from heat)} \notag \\
+    \mathtt{ehOns}_{i,j,l,n} &= 
+    \mathtt{OnsHr}_{i,j,l,n} \mathtt{uOns}_{i,j,l,n} +
+    \mathtt{ehOnsRhs}_{i,j,l,n} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L}\\
     %
-    \mathtt{fuOns}_{i,j,l,f} &= 
-    \mathtt{FfrOns}_{i,j,l,f} \mathtt{ehOns}_{i,j,l}, \; \forall f \in
-    \mathcal{F}, \\
+    & \text{(fuel on-site)} \notag \\
+    \mathtt{fuOns}_{i,j,l,f,n} &= 
+    \mathtt{FfrOns}_{i,j,l,f,n} \mathtt{ehOns}_{i,j,l,n} \; 
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1 , 
+    \forall l \in \mathcal{L},
+    \forall f \in \mathcal{F}, 
+    \forall n \in \mathcal{N} \\
     % fuel em
-    \mathtt{ehCo2}_{i,j,l} &= 
-    \sum_{f \in \mathcal{F}} \mathtt{Femf}_{f} \mathtt{eh}_{i,j,l,f}, \\
+    & \text{(fuel impacts)} \notag \\
+    \mathtt{ehImp}_{i,j,l,n} &= 
+    \sum_{f \in \mathcal{F}} \mathtt{Femf}_{f} \mathtt{eh}_{i,j,l,f,n} \;
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1 , 
+    \forall l \in \mathcal{L},
+    \forall f \in \mathcal{F}, 
+    \forall n \in \mathcal{N} \\
     % fuel-onsite-elec em
-    \mathtt{ehOnsCo2}_{i,j,l} &= 
-    \sum_{f \in \mathcal{F}} \mathtt{Femf}_{f} \mathtt{ehOns}_{i,j,l,f}  , \\
+    & \text{(fuel on-site impacts)} \notag \\
+    \mathtt{ehOnsImp}_{i,j,l,n} &= 
+    \sum_{f \in \mathcal{F}} \mathtt{Femf}_{f} \mathtt{ehOns}_{i,j,l,f,n} \; 
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L},
+    \forall f \in \mathcal{F}, 
+    \forall n \in \mathcal{N}, \\
     % ep0
-    \mathtt{ep0}_{i,j,l} &= \mathtt{prCo2}_{i,j,l} 
-    + \mathtt{ehCo2}_{i,j,l}
-    + \mathtt{ehOnsCo2}_{i,j,l}, \\
+    & \text{(total impacts)} \notag \\
+    \mathtt{ep0}_{i,j,l} &= 
+    \sum_{n\in \mathcal{N}} \mathtt{prImp}_{i,j,l,n} 
+    + \mathtt{ehImp}_{i,j,l,n} + \mathtt{ehOnsImp}_{i,j,l,n}, 
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L},
+    \forall n \in \mathcal{N}, \\
     % ep1ge
-    \mathtt{ep1ge}_{i,j,l} &= \left(1-\chi_{l}\right) \mathtt{ep0}_{i,j,l}, \\
+    & \text{(scope 1 impacts)} \notag \\
+    \mathtt{ep1ge}_{i,j,l} &= \left(1-\chi_{l}\right) \mathtt{ep0}_{i,j,l}, 
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L}, \\
     %
+    & \text{(scope 1 captured)} \notag \\
     \mathtt{ep1gce}_{i,j,l} &= 
-    \chi_{l} \left(1-\sigma_{l}\right) \mathtt{ep0}_{i,j,l}, \\
+    \chi_{l} \left(1-\sigma_{l}\right) \mathtt{ep0}_{i,j,l}, 
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L}, \\
     %
+    & \text{(scope 1 stored)} \notag \\
     \mathtt{ep1gcs}_{i,j,l} &= 
-    \chi_{l} \sigma_{l} \mathtt{ep0}_{i,j,l}, \\
+    \chi_{l} \sigma_{l} \mathtt{ep0}_{i,j,l}, 
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1, 
+    \forall l \in \mathcal{L}, \\
     %
+    & \text{(annual cost)} \notag \\
     \mathtt{annCost}_{i,j,l} &= 
     \mathtt{annF}_{i,j,l}\; \mathtt{nvNc}_{i,j,l}, \\
-    & \forall \; i \in \mathcal{P},j \in \mathcal{P}_1 ,
-    l \in \mathcal{L}. \notag
+    \forall i \in \mathcal{P},
+    \forall j \in \mathcal{P}_1 , 
+    \forall l \in \mathcal{L}
 \end{align}
 %
-These equations represent: fuel, on-site fuel (elec.\ gen.), fuel CO2 emission,
-on-site fuel CO2 emission (elec.\ gen.), total CO2 emission, scope 1 emitted,
-scope 1 captured/emitted, scope 1 captured stored, and annuity cost. 
+These equations represent: fuels for heating and on-site electricity, as well as
+the associated impacts from their burning (heat and electricity generation),
+total impact, scope 1 captured impacts, and scope 1 stored, and annuity cost.
 %
 The equations previously presented in this section can be condensed into a
-linear system, where the coefficients are used to assemble a matrix $A_{i,j,l}$,
-and a right-hand-side $b_{i,j,l}$. Let $x_{i,j,l}$  a variable vector, where
+linear system. Let $x_{i,j,l}$ be a vector where each element corresponds to
+a variable indexed by period, subperiod and location from the previous set
+
+where the coefficients are used to assemble a matrix $A_{i,j,l}$,
+and a right-hand-side $b_{i,j,l,n}$. Let $x_{i,j,l,n}$  a variable vector, where
 each element comes from the previous equations. Then, the equations are
 condensed into the system,
 %
 \begin{equation}\label{eq:base_sys}
-    A_{i,j,l} x_{i,j,l} = b_{i,j,l},
-    \; \forall \; i \in \mathcal{P},j \in \mathcal{P}_1 , l \in \mathcal{L}.
+    A_{i,j,l} x_{i,j,l} = b_{i,j,l} \; \forall i \in \mathcal{P}, \forall j \in \mathcal{P}_1, \forall l \in \mathcal{L}.
 \end{equation}
 %
 \section{Introduction to disjunctive constraints}\label{sec:DP}
@@ -466,9 +591,9 @@ The logic relationships are described in a separate section.
 \section{New plant}
 %
 New plants use a near identical mathematical representation as the retrofits.
-For this case, let the set of possible new plant be $\mathcal{N}$, and Boolean
+For this case, let the set of possible new plant be $\mathcal{K}_N$, and Boolean
 variables $Y^n_{ijlk} \in \left\{\text{True, False}\right\}$ for $k\in
-\mathcal{N}$. Unlike retrofits new plants have arbitrary capacity, which can
+\mathcal{K}_N$. Unlike retrofits new plants have arbitrary capacity, which can
 potentially allow for the creation of plants of sufficient capacity to clear
 demand. For this it is considered a new capacity variable that with upper
 and lower bounds,
@@ -488,7 +613,7 @@ e.g.\ $\mathtt{Nu}_{ijl}$).
 The constraint is written a follows,
 %
 \begin{equation}
-    \myveebar_{k \in \mathcal{N}}
+    \myveebar_{k \in \mathcal{K}_N}
     \begin{bmatrix}
         Y^n_{ijlk} \\
         A^n_{ijlk} x^n_{ijl} \leq b^n_{ijlk}
@@ -857,7 +982,7 @@ is then written next,
 where $\mathtt{Ocap}_{ijl}$ and $\mathtt{Ncap}_{ijl}$ are the existing and new
 plant capacities respectively. Furthermore, it requires the specification of the
 market share fractions $\mathtt{msUB}_{ijk}\in \left[0, 1\right]$. It is noted
-that this constraint also assumes that $\mathcal{R}=\mathcal{N}=\mathcal{K}$.
+that this constraint also assumes that $\mathcal{K}_R=\mathcal{K}_N=\mathcal{K}$.
 Next, overall capacity is considered to be bounded by the demand over time,
 % demand
 \begin{equation}
