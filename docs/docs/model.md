@@ -1,31 +1,30 @@
 
 # Model
 
-This section provides a shortcut description of the model behind `stre3am`. For
-the purpose of laying out the core concepts, notation has been simplified from
-the original paper.
-The problem behind the diversification of the technology of a sector can be
-summarized by the following linear program,
+This section provides a summary of the model `stre3am`. A more comprehensive
+description can be found under the `STREAM/docs/model_d/` directory and typing
+`make` in a terminal emulator[^1]. 
 
-$$
-\begin{equation}
-    \begin{split}
-        \min\; O\left(\mathbf{x}, \mathbf{p}\right):= 
-        \alpha \, \mathtt{NPV} \left(\mathbf{x}, \mathbf{p}\right)
-        + \beta \, \mathtt{termCost} \left(\mathbf{x}, \mathbf{p}\right)
-        + \gamma \, \mathtt{softSl}\left(\mathbf{x}, \mathbf{p}\right)
-        + , \; \text{s.t.} \; \mathbf{x} \in
-        \mathcal{X}(\mathbf{p}).
-    \end{split}
-\end{equation}
+[^1]: A `latex` distribution must be installed, e.g. [here](https://www.latex-project.org/get/)
+
+Let us consider a single plant or asset, and let $x_{ij}$ represent a vector of
+*measurable* quantities at a particular period $i$, subperiod $j$, e.g.\ the
+fuel consumption, or the variable O & M cost, etc.
+Assuming every quantity of the plant is related linearly to one another, the
+following system characterizes the asset,
+
+$$ 
+A_{ij} x_{ij} = b_{ij}\; \forall i \in \mathcal{P}, \forall j \in \mathcal{P}_1,
 $$
 
-In which, $\mathbf{x}$ represents the concatenated vector of variables of the
-problem, and $\mathbf{p}$ represents the exogenous parameters of the model, 
-e.g., capital costs, demand, etc. $\mathcal{X}$ represents the feasible
-set of constraints of the model, e.g. asset balance, and so forth. Finally, the
-scalars $\alpha, \beta, \gamma \in \mathbb{R}_{+}$, are arbitrary scaling
-factors.
+
+where $A_{ij}$ is an `nvar` by (`nvar`+$d$) matrix ($d>0$ degrees of freedom), 
+and $b_{ij}$ is a `nvar` vector of coefficients. 
+At a particular time-slice given by the period, subperiod pair, and particular
+values of the $d$ degrees of freedom (e.g. active capacity), 
+Equation 1 can be used to determine the *state* of the plant. In other
+words, all the measurable quantities, in particular, energy quantities in the
+form of electricity or heat. 
 
 ## Objective function
 
@@ -71,7 +70,7 @@ initial age, viz.,
 The following variables ($\in\mathbb{R}_{\geq 0}$) are thus, recognized,
 
 |variable     |description|
-|-------------|-----------|
+lllllx|-------------|-----------|
 |$w^t_{i,j}$   |existing assets, $t \in T, i \in I, j \in N_i$|
 |$y^t_{i,k,j}$ |retrofitted assets transition, $t \in T, i \in I, k \in K_i, j \in N_i$|
 |$u^{t}_{i,j}$|retired assets $t \in T, i \in I, j \in N_i$|

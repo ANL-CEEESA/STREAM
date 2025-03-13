@@ -173,7 +173,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # surplus
     
     # d082923
-    # heating requirement
+    ## heating requirement
     @variable(m, r_eh[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
     @variable(m, r_eh_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
                          r_filter[l, k] && nd_en_fltr[n]])
