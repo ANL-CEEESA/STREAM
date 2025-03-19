@@ -1,0 +1,18 @@
+# See docs at: https://mystmd.org/guide/frontmatter
+version: 1
+project:
+  id: 87f22948-fa88-4e65-946b-42b45a8e4903
+  title: STREAM
+  # description:
+  # keywords: []
+  authors: [D. Thierry, S. Supekar]
+  github: https://github.com/ANL-CEEESA/STREAM
+  references:
+    julia: https://julialang.org/downloads/
+    jump: https://jump.dev
+  # To autogenerate a Table of Contents, run "myst init --write-toc"
+site:
+  template: book-theme
+  # options:
+  favicon: ./images/favicon.ico
+  logo: ./images/2025_logo.png
