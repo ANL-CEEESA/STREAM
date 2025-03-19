@@ -1,7 +1,9 @@
+# License
+
 Copyright (c) 2023, UChicago Argonne, LLC
 All Rights Reserved
 
-## Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model
+## Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model: STRE{sup}`3`AM
 
 
 By: Argonne National Laboratory

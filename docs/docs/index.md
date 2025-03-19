@@ -1,4 +1,5 @@
-# STRE<sup>3</sup>AM
+
+# STRE{sup}`3`AM
 
 ## Introduction
 
@@ -16,10 +17,6 @@ which enables the use of several solvers, included open-source solvers.
 
 `stre3am` is open-source and is subject to the terms of the [3-Clause BSD
 License](https://opensource.org/license/BSD-3-clause/).
-
-
-<p class="aligncenter"> <img src="../img/2025_logo.svg" width="20%" height="20%"
-title="stre3am logo"> </p>
 
 ## Installation
 
@@ -144,6 +141,10 @@ Before running a problem, please consult the data requirements from the
 
 ## License
  
+
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+
+
 `stre3am` is licensed under the 3-Clause BSD [license](license.md). 
 
 Additionally, `stre3am` utilizes several dependencies, which have their own
