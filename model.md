@@ -13,8 +13,8 @@ Let us consider a single plant or asset, and let $x_{ij} \in
 \mathbb{R}^{\mathtt{nv}}$
 represent a vector of *measurable* quantities at a particular period $i$,
 subperiod $j$, e.g.\ the fuel consumption, or the variable O & M cost, etc.
-Further, assume the *ordered* sets $\mathcal{P} \in \{1, 2, \dots\}$ and 
-$\mathcal{P}_1 \in \{1,2,\dots\}$ representing the periods and subperiods. Then,
+Further, assume the *ordered* sets $\mathcal{P} = \{1, 2, \dots\}$ and 
+$\mathcal{P}_1 = \{1,2,\dots\}$ representing the periods and subperiods. Then,
 assuming every quantity of the plant is related linearly to one another, the
 following system characterizes the asset,
 
@@ -242,7 +242,9 @@ Thus, the constraints of the model can be laid out as follows,
 [^bool]: On the space of binary variables $y_{ij}^e, y_{ij}^r, y_{ij}^o,
   y_{ij}^n \in \{0, 1\}$
 
-```{math}
+  {term}`Expansion`
+
+```{math} 
 \begin{pmatrix} Y^e_{ij} \\ 
 x^0_{ij} = \mathtt{x0} + \Delta_{ij} 
 \end{pmatrix}
@@ -250,14 +252,19 @@ x^0_{ij} = \mathtt{x0} + \Delta_{ij}
 \begin{pmatrix} \neg Y^e_{ij} \\ 
 x^0_{ij} = \mathtt{x0}
 \end{pmatrix}
-\; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1,
+\; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
 ```
+
+  {term}`Plant retrofit`
 
 ```{math}
 \underline{\vee}_{k\in \mathcal{K}_r} \begin{pmatrix} Y^r_{ijk} \\ 
 A^r_{ijk} x_{ij}^0 = b^r_{ijk} \end{pmatrix}\; \forall i \in\mathcal{P}, 
-\forall j \in\mathcal{P}_1,
+\forall j \in\mathcal{P}_1.
 ```
+
+
+  {term}`Plant retirement`
 
 ```{math}
 \begin{pmatrix} Y^o_{ij} \\ 
@@ -267,19 +274,38 @@ x^o_{ij} = x^0_{ij}
 \begin{pmatrix} \neg Y^e_{ij} \\ 
 x^o_{ij} = 0 
 \end{pmatrix}
-\; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1,
+\; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
 ```
+
+  {term}`New plant`[^newp]
+
+  [^newp]: For $k\in\mathcal{K}_n=\{1,2,...\}$, we assume that for $k=1$ $x_{ij} = 0$
 
 ```{math}
 \underline{\vee}_{k\in \mathcal{K}_n} \begin{pmatrix} Y^n_{ijk} \\ 
-A^n_{ijk} x_{ij} = b^n_{ijk} \end{pmatrix}\; \forall i \in\mathcal{P}, 
-\forall j \in\mathcal{P}_1,
+A^n_{ijk} x_{ij} = b^n_{ijk} \end{pmatrix}\
+; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
 ```
+
+{term}`Logic propositions`
 
 ```{math}
 \Omega \left(Y_{ij}^e, Y_{ij}^r, Y_{ij}^o, Y_{ij}^n\right) = \text{True}
+; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
 ```
-Alternatively,
+
+The previous equations describe the changes on the plant through technological,
+capacity, and operational decisions. 
+
+```{math}
+ B_{ij} \left(x^0_{ij}+x_{ij}\right) \leq p_{ij} \;
+\forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
+```
+
+```{math}
+\sum_{i\in\mathcal{P}} \sum_{j\in\mathcal{P}_1} T 
+\left(x^0_{ij}+x_{ij}\right) \leq q
+```
 
 ```{math}
 \nu^e_{ij,1} &= \mathtt{x0} y_{ij,1}^e + \Delta^e_{ij},  \\
@@ -326,4 +352,26 @@ x_{ijk} &= \sum_{k\in\mathcal{K}_n} \nu_{ijk}^n, \\
 
 It is encouraged to refer to the `stre3am` manuscript where the complete model is
 laid out. This page is a brief summary of some core aspects of the model.
+
+:::{glossary}
+Expansion
+: Increase *installed capacity* of the existing plant once through the whole
+horizon.
+
+Plant retrofit
+: Change of characteristic coefficient matrix and right-hand-side. Acts on the
+existing plant.
+
+Plant retirement
+: Set existing plant off. All associated quantities are set to zero. Retirement
+cost must be paid. Can be used *once* through the horizon. Results in an *empty*
+location.
+
+New plant
+: If an empty location is available, creates a plant of arbitrary capacity, and
+characteristic coefficient matrix/right-hand-side.
+
+Logic propositions
+: Provides the space of acceptable combinations of Boolean variables. 
+:::
 
