@@ -1,5 +1,17 @@
-
-# Model
+---
+title: Model 
+subject: Documentation 
+subtitle: A short description of the model.
+short_title: Model
+authors:
+  - name: David Thierry 
+    affiliations:
+      - Energy Systems and Infrastructure Analysis.
+  - name: Sarang Supekar
+    affiliations:
+      - Energy Systems and Infrastructure Analysis.
+license: BSD-3 
+---
 
 This section provides a summary of the model `stre3am`. A more comprehensive
 description can be found under the `STREAM/docs/model_d/` directory and typing
@@ -10,13 +22,13 @@ description can be found under the `STREAM/docs/model_d/` directory and typing
 ## Model basic idea
 
 Let us consider a single plant or asset, and let $x_{ij} \in
-\mathbb{R}^{\mathtt{nv}}$
-represent a vector of *measurable* quantities at a particular period $i$,
-subperiod $j$, e.g.\ the fuel consumption, or the variable O & M cost, etc.
-Further, assume the *ordered* sets $\mathcal{P} = \{1, 2, \dots\}$ and 
-$\mathcal{P}_1 = \{1,2,\dots\}$ representing the periods and subperiods. Then,
-assuming every quantity of the plant is related linearly to one another, the
-following system characterizes the asset,
+\mathbb{R}^{\mathtt{nv}}$ represent a vector of *measurable* quantities at a
+particular period $i$, subperiod $j$, e.g.\ the fuel consumption, or the
+variable O & M cost, etc.  Further, assume the *ordered* sets $\mathcal{P} =
+\{1, 2, \dots, \mathtt{n\_periods}\}$ and $\mathcal{P}_1 =
+\{1,2,\dots,\mathtt{n\_subperiods}\}$ representing the periods and subperiods.
+Then, assuming every quantity of the plant is related linearly to one another,
+the following system characterizes the asset,
 
 ```{math} 
 :label: eq:char
@@ -235,7 +247,7 @@ https://doi.org/10.1002/cite.201400037)
 
 Either case, the decisions mentioned in [](#tab:key_dec), have their own
 set of Boolean/binary variables. 
-Let {math}`Y_{ij}^e, Y_{ij}^r, Y_{ij}^o, Y_{ij}^n \in \text{True, False}`[^bool]
+Let {math}`Y_{ij}^e, Y_{ij}^r, Y_{ij}^o, Y_{ij}^n \in \{\text{True, False}\}`[^bool]
 represent the Boolean variables for expansion, retrofit, online, and new plant.
 Thus, the constraints of the model can be laid out as follows,
 
@@ -244,7 +256,8 @@ Thus, the constraints of the model can be laid out as follows,
 
   {term}`Expansion`
 
-```{math} 
+```{math}
+:label: eq:exp
 \begin{pmatrix} Y^e_{ij} \\ 
 x^0_{ij} = \mathtt{x0} + \Delta_{ij} 
 \end{pmatrix}
@@ -290,22 +303,31 @@ A^n_{ijk} x_{ij} = b^n_{ijk} \end{pmatrix}\
 {term}`Logic propositions`
 
 ```{math}
+:label: eq:logic_prop
 \Omega \left(Y_{ij}^e, Y_{ij}^r, Y_{ij}^o, Y_{ij}^n\right) = \text{True}
-; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
+\; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
 ```
 
 The previous equations describe the changes on the plant through technological,
-capacity, and operational decisions. 
+capacity, and operational decisions. It is also possible to have continuous
+variables constrained on temporal basis, for example demand at every period and
+subperiod pair. This can be represented through the following equation,
 
 ```{math}
  B_{ij} \left(x^0_{ij}+x_{ij}\right) \leq p_{ij} \;
 \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
-```
+``` 
+[^exist_v_new]
 
-```{math}
-\sum_{i\in\mathcal{P}} \sum_{j\in\mathcal{P}_1} T 
-\left(x^0_{ij}+x_{ij}\right) \leq q
-```
+[^exist_v_new]: In the current model construction {math}`x^0_{ij}` and
+  {math}`x_{ij}` are orthogonal of one another for some period and subperiod
+  pair, in other words, either {math}`x^0` or {math}`x` is non-negative, an
+  existing plant or a new plant operates, but not both. 
+
+for some matrix and right-hand-side {math}`B_{ij}` and {math}`p_ij`.
+
+Finally, it is noted that Equations [](#eq:exp) through [](#eq:logic_prop) can
+be represented using binary variables and algebraic equations as follows,
 
 ```{math}
 \nu^e_{ij,1} &= \mathtt{x0} y_{ij,1}^e + \Delta^e_{ij},  \\
@@ -347,11 +369,69 @@ x_{ijk} &= \sum_{k\in\mathcal{K}_n} \nu_{ijk}^n, \\
 \; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1,
 ```
 
+```{math}
+:label: eq:logic_prop_bin
+H_{ij} \left[y_{ij}^e, y_{ij}^r, y_{ij}^o, y_{ij}^n\right]^T \leq h_{ij}
+\; \forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1.
+```
+So far these equations describe the model for a *single* plant/asset. Typically,
+one might find that industries have several plants/assets, each with their
+unique characteristics, i.e. `A_{ij}`, `b_{ij}`, costs, etc.
+Let 
+{math}`\mathcal{L}\in\left\{1, 2, 3, ..., \mathtt{n\_loc}\right\}` represent the
+set of locations. The multi-plant location problem is a natural extension of the
+single location problem shown thus far. 
+
+
+## Model building actions
+
+Given the input sets and data for a particular instance, building the model is
+done through a series of function calls that first build an *unlinked* model for
+each period, subperiod, and location. This is done through the following
+function,
+
+```{code} julia
+m = createBlockMod(s.P, s.L, p, s)
+```
+
+Through this call the model `m` is generated. This call however, does not
+create either inter-period or inter-location constraints.
+
+:::{note} Inter-period/inter-location constraints 
+:class: dropdown
+Typically, the model has several periods, subperiods, and locations. Most
+constraints of the model reference variables within the same period, subperiod
+and location. Furthermore, let us consider a block of variables that share the
+same period and location (but may have different subperiod). Then, the model
+that results from considering *only* constraints within period and location is
+*decoupled* insofar as each block could be solved independendly of the other
+blocks. The model blocks have a collective feasible region different from the
+full *linked* problem, and this solution is a lower-bound of the full problem at
+best. Nevertheless, it possesses useful properties for potential algorithmic
+strategies. 
+:::
+
+The linking with inter-period and inter-location is done as follows:
+
+```{code} Julia
+attachPeriodBlock(m, p, s)
+attachLocationBlock(m, p, s)
+```
+
+This creates a linked model, which can be completed with the objective function
+(NPV minimization) creation:
+
+```{code} Julia
+attachFullObjectiveBlock(m, p, s)
+```
+
+The resulting `m` is an instance of a `JuMP` object with objective and
+constraints
 
 ## Concluding remarks
 
-It is encouraged to refer to the `stre3am` manuscript where the complete model is
-laid out. This page is a brief summary of some core aspects of the model.
+It is encouraged to refer to the `stre3am` manuscript where the complete model
+is laid out. This page is a brief summary of some core aspects of the model.
 
 :::{glossary}
 Expansion
