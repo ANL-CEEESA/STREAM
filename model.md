@@ -11,7 +11,11 @@ authors:
     affiliations:
       - Energy Systems and Infrastructure Analysis.
 license: BSD-3 
+abbreviations:
+  MILP: Mixed-Integer Linear Programming
+  NPV: Net Present Value
 ---
+
 
 This section provides a summary of the model `stre3am`. A more comprehensive
 description can be found under the `STREAM/docs/model_d/` directory and typing
@@ -203,7 +207,7 @@ Similar methodology can be applied to the following decisions within `stre3am`,
   capacity. Similarly to retrofit, the new plant will have a matrix/rhs from
   Equation [](#eq:char_k) which changes the performance accordingly.
 ```
-
+(s:objective_function)=
 ## Objective function
 
 The model uses the minimization of the _Net Present Value_ (NPV) as objective
@@ -433,6 +437,9 @@ constraints
 It is encouraged to refer to the `stre3am` manuscript where the complete model
 is laid out. This page is a brief summary of some core aspects of the model.
 
+
+Here we reference [](#my-section)
+
 :::{glossary}
 Expansion
 : Increase *installed capacity* of the existing plant once through the whole
@@ -454,4 +461,11 @@ characteristic coefficient matrix/right-hand-side.
 Logic propositions
 : Provides the space of acceptable combinations of Boolean variables. 
 :::
+
+stre3am, eh
+
+
+We use ML to parse HTML.
+
+
 
