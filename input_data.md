@@ -11,7 +11,6 @@ authors:
     affiliations:
       - Energy Systems and Infrastructure Analysis.
 license: BSD-3-Clause 
-
 ---
 
 The prototype case study was created to show the functionality of `stre3am`.
@@ -57,8 +56,8 @@ sets ({math}`\mathcal{P}` & {math}`\mathcal{P}_1`), location
 The previous table also contains floating point values for parameters like
 scaling factors (`sf_`), etc. 
 
-(s:initial_cap)=
-## Initial Capacity (by location)
+(s:r-t-l-map)=
+## Row to location mapped arrays 
 
 Several parameters are indexed by location. In this example,
 {math}`|\mathcal{L}|=10`, thus data like the *initial capacity* is given as a
@@ -81,6 +80,12 @@ column vector with 10 rows. I.e.,
 |10| 0.096303537  |
 :::
 
+The mapping of row to location is the preferred layout in `stre3am`.
+Multi-dimensional parameters, e.g., the retrofit electricity intensity factor
+{math}`\mathtt{r_u}_{kln}` &mdash;which has 3 dimensions, technology, location and
+node&mdash; has a row mapped to location, and uses columns for each combination of
+technology and node. For example, in the next table {math}`|\mathcal{K}_r|=5`
+and {math}`|\mathcal{N}|=2`, which yields 10 columns.
 
 :::{table} Electricity intensity factor
 :label: tab:u
@@ -99,6 +104,13 @@ column vector with 10 rows. I.e.,
 |l=10| 2.999992857 | 2.849993214 | 2.999992857 | 5.624385476 | 3.899990714 | 0.299999286 | 0.284999321 | 0.299999286 | 0.474958794 | 0.389999071  |
 :::
 
+
+## Row to time-slice mapped data
+
+A *limited* amount of input data is indexed by time-slice. This is due to their
+time-dependency. For example the overall demand changes from time-slice to
+time-slice yielding an array as follows:
+
 :::{table} Overall demand 
 :label: tab:demand
 :align: center
@@ -112,8 +124,14 @@ column vector with 10 rows. I.e.,
 |(2,2)     |6| 1.04513375 |
 |(2,3)     |7| 1.13222262 |
 |(2,4)     |8| 1.21931149 |
+:::
 
+(s:sheet_ref)=
+## Sheet name reference
 
+The input data spreadsheet `f0.xlsx` has all the relevant information for the
+prototype case study of `stre3am`. The following table is a description of the
+sheets/parameters involved.
 
 | **Sheet name**   | **description**                             |
 |------------------|---------------------------------------------|

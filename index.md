@@ -10,7 +10,7 @@ authors:
   - name: Sarang Supekar
     affiliations:
       - Energy Systems and Infrastructure Analysis.
-license: BSD-3 
+license: BSD-3-Clause 
 ---
 
 ## Introduction

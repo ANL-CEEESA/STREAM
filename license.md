@@ -6,7 +6,7 @@ All Rights Reserved
 ## Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model: STRE{sup}`3`AM
 
 
-By: Argonne National Laboratory
+By: *Argonne National Laboratory*
 
 # BSD OPEN SOURCE LICENSE
 

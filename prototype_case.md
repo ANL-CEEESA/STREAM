@@ -10,7 +10,7 @@ authors:
   - name: Sarang Supekar
     affiliations:
       - Energy Systems and Infrastructure Analysis.
-license: BSD-3 
+license: BSD-3-Clause 
 
 ---
 
@@ -29,7 +29,7 @@ using HiGHS
 Where [HiGHs](https://highs.dev) is a *open-source* MILP solver. 
 Then the input data file `f0.xlsx` contains all the relevant information to
 build the case study.
-```{code}
+```{code} julia
 # input file
 f = "./f0.xlsx"
 ```
@@ -67,7 +67,7 @@ m = createBlockMod(s.P, s.L, p, s)
 The reason for the pedantic nature of having to reference `s` thrice, is that
 one can create a *single* model block for a particular period and location, e.g.
 calling [](#createBlockMod) with two scalars in the sets, 
-```{code}
+```{code} julia
 m_1_2 = createBlockMod(1, 2, p, s)
 ```
 would create a model for the first period and the second location.
