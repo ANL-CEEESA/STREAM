@@ -1,5 +1,17 @@
-
-# STRE{sup}`3`AM
+---
+title: STRE3AM 
+subject: README 
+subtitle: Strategic Technology Roadmapping, and Energy, Environmental, and Economic Analysis Model
+short_title: STRE^3^AM
+authors:
+  - name: David Thierry 
+    affiliations:
+      - Energy Systems and Infrastructure Analysis.
+  - name: Sarang Supekar
+    affiliations:
+      - Energy Systems and Infrastructure Analysis.
+license: BSD-3 
+---
 
 ## Introduction
 
@@ -25,7 +37,7 @@ the repository as follows,
 
     add https://github.com/ANL-CEEESA/STREAM
 
-## The `stre3am` layout
+## The `stre3am` directory structure
 
 The source is organized as follows,
 
@@ -63,10 +75,6 @@ The source is organized as follows,
     │   │   └── stre3am_c.tex
     │   └── model_d # discrete model description
     │       ├── Makefile
-    │       ├── stre3am_d.aux
-    │       ├── stre3am_d.log
-    │       ├── stre3am_d.out
-    │       ├── stre3am_d.pdf
     │       └── stre3am_d.tex
     ├── instance    # case studies folder
     │   └── prototypes  # example prototypes
@@ -99,26 +107,26 @@ The source is organized as follows,
     │   │           └── readExcelResults.py
     │   ├── stre3am_d
     │   │   ├── kern
-    │   │   │   └── kern.jl
+    │   │   │   └── kern.jl # model kernel
     │   │   ├── mod
-    │   │   │   └── bm.jl
+    │   │   │   └── bm.jl  # blocked model
     │   │   ├── post
-    │   │   │   └── postprocess.jl
+    │   │   │   └── postprocess.jl  # write result file
     │   │   ├── stre3am_d.jl
     │   │   └── util
-    │   │       ├── plot_py
+    │   │       ├── plot_py  # general plot tools
     │   │       │   ├── bars.py
     │   │       │   ├── fuels.py
     │   │       │   ├── map_pie.py
     │   │       │   └── switches.py
-    │   │       └── toy
+    │   │       └── toy  # toy problem specific plots
     │   │           ├── bars.py
     │   │           ├── fuels.py
     │   │           ├── map_pie.py
     │   │           └── switches.py
     │   └── utils
     │       └── journalist.jl
-    └── test
+    └── test  # testing files
         ├── gestalt
         │   └── test_modKern.jl
         ├── matrix
@@ -132,7 +140,11 @@ The source is organized as follows,
 ## Data requirements 
 
 Before running a problem, please consult the data requirements from the
-[input](input.md) page.
+[input](input_data.md) page.
+
+## Prototype case study
+
+An example case study is constructed in the [prototype page](prototype_case.md).
 
 ## Contributors
 
@@ -140,10 +152,8 @@ Before running a problem, please consult the data requirements from the
 - Sarang Supekar, Argonne National Laboratory, *ESIA division*
 
 ## License
- 
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-
 
 `stre3am` is licensed under the 3-Clause BSD [license](license.md). 
 

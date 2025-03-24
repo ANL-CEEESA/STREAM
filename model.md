@@ -438,7 +438,6 @@ It is encouraged to refer to the `stre3am` manuscript where the complete model
 is laid out. This page is a brief summary of some core aspects of the model.
 
 
-Here we reference [](#my-section)
 
 :::{glossary}
 Expansion
@@ -462,10 +461,7 @@ Logic propositions
 : Provides the space of acceptable combinations of Boolean variables. 
 :::
 
-stre3am, eh
 
-
-We use ML to parse HTML.
 
 
 
