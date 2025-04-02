@@ -7,24 +7,124 @@ description can be found under the `STREAM/docs/model_d/` directory and typing
 
 [^1]: A `latex` distribution must be installed, e.g. [here](https://www.latex-project.org/get/)
 
-Let us consider a single plant or asset, and let $x_{ij}$ represent a vector of
-*measurable* quantities at a particular period $i$, subperiod $j$, e.g.\ the
-fuel consumption, or the variable O & M cost, etc.
-Assuming every quantity of the plant is related linearly to one another, the
+Let us consider a single plant or asset, and let $x_{ij} \in
+\mathbb{R}^{\mathtt{nv}}$
+represent a vector of *measurable* quantities at a particular period $i$,
+subperiod $j$, e.g.\ the fuel consumption, or the variable O & M cost, etc.
+Further, assume the *ordered* sets $\mathcal{P} \in \{1, 2, \dots\}$ and 
+$\mathcal{P}_1 \in \{1,2,\dots\}$ representing the periods and subperiods. Then,
+assuming every quantity of the plant is related linearly to one another, the
 following system characterizes the asset,
 
 $$ 
 A_{ij} x_{ij} = b_{ij}\; \forall i \in \mathcal{P}, \forall j \in \mathcal{P}_1,
 $$
 
+where $A_{ij}$ is an `nvar` by (`nv`=`nvar`+$d$) matrix ($d>0$ degrees of
+freedom), and $b_{ij}$ is a `nvar` vector of coefficients.  The equation above
+can be used to determine the *state* of the plant given an arbitrary value of
+the $d$ degrees of freedom (e.g. the active capacity).
 
-where $A_{ij}$ is an `nvar` by (`nvar`+$d$) matrix ($d>0$ degrees of freedom), 
-and $b_{ij}$ is a `nvar` vector of coefficients. 
-At a particular time-slice given by the period, subperiod pair, and particular
-values of the $d$ degrees of freedom (e.g. active capacity), 
-Equation 1 can be used to determine the *state* of the plant. In other
-words, all the measurable quantities, in particular, energy quantities in the
-form of electricity or heat. 
+Therefore, a plant in `stre3am` can have varying *states* according to the
+arbitrary values of the $d$ degrees of freedom over time. A change in the
+technological makeup of the plant has the potential to change the relationship
+between state and their degrees of freedom. This is reflected in Eq. 1 through
+the adoption *characteristic* matrices/vectors $A_{ij}$ and $b_{ij}$ for each
+technology adoption in the plant. Therefore, a plant with several possible
+technological makeup (e.g.\ plant retrofits) has the following system,
+
+$$ 
+A_{ijk} x_{ij} = b_{ijk}\; 
+\exists k \in \mathcal{K}, \forall i \in \mathcal{P}, \forall j \in \mathcal{P}_1,
+$$
+
+where $\mathcal{K}$ represents the (generic) technology ordered set,
+which in the current implementation of `stre3am` can refer to retrofits or new
+plants. The key aspect of the problem behind `stre3am` is that for the plant *at
+most* one technological makeup must be true (e.g. selected) at a given time.
+This decision is different from the other measurable quantities insofar as its
+*discrete* nature. Let $y_{ijk} \in \{0,1\}$ be 1 if technology $k$ is *active*
+and 0 otherwise. This binary variable is used to present the decision of a
+particular technology at a particular time in the following form,
+
+$$ 
+A_{ijk} \nu_{ijk} = b_{ijk} y_{ijk} \; 
+\forall i \in \mathcal{P}, \forall j \in \mathcal{P}_1,
+$$
+
+$$
+\sum_{k\in\mathcal{K}} \nu_{ijk} = x_{ij}, \, \sum_{k\in\mathcal{K}}y_{ijk}
+= 1\; 
+\forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1,
+$$
+
+and, 
+
+$$
+x^\text{lb} y_{ijk} \leq \nu_{ijk} \leq x^\text{ub} y_{ijk} \;
+\forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1,
+$$
+
+where $\nu_{ijk}$ is the *disaggregated* state variable for technology $k$, and
+$x^{\text{lb}}$ and $x^{\text{ub}}$ are the lower- and upper-bound of the state
+vector. These equations link the value of $y_{ijk}$ to the state vector and the
+ respective matrix and vector $A_{ijk}$ and $b_{ijk}$. An alternative view of
+ this system can be obtained by introducing a *Boolean* variable $Y_{ijk} \in
+ \{\text{True, False} \}$ analogous to $y_{ijk}$, and the following equation,
+
+$$
+\underline{\vee}_{k\in \mathcal{K}} 
+\begin{pmatrix} Y_{ijk} \\
+A_{ijk} x_{ij} = b_{ijk} 
+\end{pmatrix}\;
+\forall i \in\mathcal{P}, \forall j \in\mathcal{P}_1,
+$$
+
+where $\underline{\vee}$ represents the *exclusive OR* (XOR) operator. The
+previous equation are known as *disjunctive* constraints, and this particular
+instance assumes a single index $k$ has $Y_{ijk}$ equal True, and all else set
+to False. Let us assume that $k=1$ corresponds to the *incumbent* technology,
+i.e. the technology given to the plant *before* the first time-slice. Then, the
+possible values the Boolean variables over the whole horizon can be restricted
+through the following statements:
+
+- A transition to a non-incumbent technology is True once for the whole horizon.
+
+$$
+Y_{ijk} \implies Y_{i, j+1, k}, \;
+\forall i \in \mathcal{P},
+\forall j \in \mathcal{P}_1 \setminus \left\{|\mathcal{P}_1|\right\},
+\forall k \in \mathcal{K} \setminus \left\{1\right\},
+$$
+
+and,
+
+$$
+Y_{i,|\mathcal{P}_1|,k} \implies Y_{i+1, 1, k}, \; 
+\forall i \in \mathcal{P} \setminus \left\{|\mathcal{P}|\right\},
+\forall k \in \mathcal{K} \setminus \left\{1\right\}.
+$$
+
+- A transition from incumbent is True once for the whole horizon.
+
+$$
+Y_{i, j+1, 1} \implies Y_{i,j, 1} , \;
+\forall i \in \mathcal{P},
+\forall j \in \mathcal{P}_1 \setminus \left\{|\mathcal{P}_1|\right\},
+$$
+
+and,
+
+$$
+Y_{i+1, 1, 1} \implies 
+Y_{i,|\mathcal{P}_1|,1} \; 
+\forall i \in \mathcal{P} \setminus \left\{|\mathcal{P}|\right\}.
+$$
+
+The disjunctive constraints, alongside the logic statements define a feasible
+region over which the objective function can be minimized in similar to
+conventional Mixed-Integer Linear Programs (MILPs). `stre3am` considers
+additional decisions for the plant.
 
 ## Objective function
 
