@@ -1,0 +1,4 @@
+,Fuel Type,Heat Content (HHV),CO2 Factor,CH4 Factor,N2O Factor,CO2 Factor_1,CH4 Factor_1,N2O Factor_1
+5,bituminouscoal,24.93,93.28,11.0,1.6," 2,325 ", 274 ,40.0
+9,distillatefueloilno.2,0.138,73.96,3.0,0.6, 10.21 , 0.41 ,0.08
+15,naturalgas,0.001026,53.06,1.0,0.1, 0.05444 , 0.00103 ,0.0001
