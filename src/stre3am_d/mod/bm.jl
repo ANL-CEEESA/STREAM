@@ -61,10 +61,6 @@ Create a block of constraints for period `index_p` and location `index_l`.
 If `index_p` or `index_l` are collections, then this would create the range
 of constraints.
 
-# Examples
-```julia-repl
-julia> bar([1, 2], [1, 2])
-1
 ```
 """
 function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
@@ -140,7 +136,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # tier 0: online status
     @variable(m, y_o[i=P, j=P2, l=L], Bin, upper_bound=1.0;
              )  # online
-    # tier 1: retrofit variable
+    # retrofit variable
     @variable(m, y_r[i=P, j=P2, l=L, k=Kr; r_filter[l, k]], Bin, upper_bound=1.0)
     # tier 2: retirement
     # there is no retirement binary variable per se.  
@@ -162,139 +158,152 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, x_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0)
     
     # d082223
+    # retrofit
     ## retrofit capacity
     @variable(m, r_cp[i=P, j=P2, l=L, n=Nd])
-    # retrofit capacity disagg
-    ## dis. retrofit capacity
+    ## retrofit capacity dis.
     @variable(m, r_cp_d_[i=P, j=P2, l=L, k=Kr, n=Nd; r_filter[l, k]])    
     @variable(m, cpb[i=P, j=P2, l=L] >= 0.0)  # base capacity
     ## base capacity disagg
     @variable(m, r_cpb_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]] >= 0.0)
-    # surplus
     
-    # d082923
-    ## heating requirement
+    ## retr. heating requirement
     @variable(m, r_eh[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    ## retr. heating requirement dis.
     @variable(m, r_eh_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
                          r_filter[l, k] && nd_en_fltr[n]])
-    # fuel requirement 
+    ## retr. fuel requirement 
     @variable(m, r_ehf[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]])
+    ## retr. fuel requirement  dis.
     @variable(m, r_ehf_d_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd; 
                           r_filter[l, k] && nd_en_fltr[n]])
-    # electricity requirement (on-site)
+    ## retr. electricity requirement (on-site)
     @variable(m, r_u[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]]) # 4
+    ## retr. elec. dis.
     @variable(m, r_u_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
                         r_filter[l, k] && nd_en_fltr[n]]) # 5
-    
-    # electricity emissions (off-site)
+    ## retr. onsite-elec
     @variable(m, r_u_onsite[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]]) #
+    ## retr. onsite-elec dis.
     @variable(m, r_u_onsite_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
                                r_filter[l, k] && nd_en_fltr[n]])
-
-    # fuel from onsite electricity generation
+    ## retr. fuel from onsite electricity generation
     @variable(m, r_u_ehf[i=P, j=P2, l=L, f=Fu_r[l], n=Nd; nd_en_fltr[n]])
+    ## retr. fuel from onsite electricity generation dis.
     @variable(m, r_u_ehf_d_[i=P, j=P2, l=L, k=Kr, f=Fu_r[l], n=Nd; 
                             r_filter[l, k] && nd_en_fltr[n]] >= 0.0)
-    #
-    # process (intrinsic) emissions
+    ## process emissions
     @variable(m, r_cpe[i=P, j=P2, l=L, n=Nd; nd_em_fltr[n]]) # 
+    ## process emission dis.
     @variable(m, r_cpe_d_[i=P, j=P2, l=L, k=Kr, n=Nd;
                           r_filter[l, k] && nd_em_fltr[n]]) # 
-    #
+    ## retr. fuel
     @variable(m, r_fu_e[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    ## retr. fuel dis.
     @variable(m, r_fu_e_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
                            r_filter[l, k] && nd_en_fltr[n]])
-    # 
+    ## retr. fuel em.
     @variable(m, r_u_fu_e[i=P, j=P2, l=L, n=Nd; nd_en_fltr[n]])
+    ## retr. fuel em. dis.
     @variable(m, r_u_fu_e_d_[i=P, j=P2, l=L, k=Kr, n=Nd; 
                              r_filter[l, k] && nd_en_fltr[n]])
-
-    # process (total) disaggregated emissions, e.g. process + fuel, etc.
+    ## retr. total em
     @variable(m, r_ep0[i=P, j=P2, l=L]) # em0
+    ## retr. total em dis.
     @variable(m, r_ep0_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
-    # scope 1, emitted
+    ## retr. scope 1, emitted
     @variable(m, r_ep1ge[i=P, j=P2, l=L]) # em1
+    ## retr. scope 1, emitted dis.
     @variable(m, r_ep1ge_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
-    # scope 1, captured
+    ## retr. scope 1, captured
     @variable(m, r_ep1gce[i=P, j=P2, l=L]) # em2
+    ## retr. scope 1, captured dis.
     @variable(m, r_ep1gce_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
-    # scope 1,  stored
+    ## retr. scope 1, capt-store
     @variable(m, r_ep1gcs[i=P, j=P2, l=L]) # em3
+    ## retr. scope 1, capt-store dis.
     @variable(m, r_ep1gcs_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) # 
-    
-    # feedstocks
+    ## retr. feedstocks
     @variable(m, r_fstck[i=P, j=P2, l=L, f=Nf])
+    ## retr. feedstocks dis.
     @variable(m, r_fstck_d_[i=P, j=P2, l=L, k=Kr, f=Nf; r_filter[l, k]] >= 0.0)
-
-    # operating and maintenance fixed
+    ## retr. o&m fixed dis.
     @variable(m, r_cfonm_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    ## retr. o&m fixed
     @variable(m, r_cfonm[i=P, j=P2, l=L]) 
     # operating and maintenance variable
+    ## retr. o&m var dis.
     @variable(m, r_cvonm_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    ## retr. o&m var
     @variable(m, r_cvonm[i=P, j=P2, l=L]) 
-
-    # d083023
-    # loan state
+    ## retr. loan state
     @variable(m, r_loan[i=P, j=P2, l=L]) #upper_bound=p.r_loan_bM[l])
+    ## retr. loan positive
     @variable(m, r_loan_p[i=P, j=P2, l=L] >= 0.0)
+    ## retr. loan neg
     @variable(m, r_loan_n[i=P, j=P2, l=L] >= 0.0)
-
+    ## retr. pay state
     @variable(m, r_yps[i=P, j=P2, l=L], Bin)  # paid or not
-
-    # retrofit loan
+    ## retrofit loan
     rl0ub0d = maximum(p.r_l0_ub)
+    ## retr. loan 0
     @variable(m, r_l0[i=P, j=P2, l=L], 
               lower_bound=0.0)#, upper_bound=rl0ub0d) # capital (loan)
+    ## retr. loan 0 dis.
     @variable(m, r_l0_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]]) 
+    ## retr. loan link dis.
     @variable(m, r_l0_pd_[i=P, j=P2, l=L, (sT, sF)], 
               lower_bound=0.0)#, upper_bound=rl0ub0d)
-    # add cost 
+    ## retr. loan add
     @variable(m, r_l0add[i=P, j=P2, l=L], lower_bound=0.0, 
               #upper_bound=rl0ub0d)
              )
     # we had (0,1) but it was clear that this is superfluous
-    # only true
+    # (only true)
+    ## retr. loan add dis.
     @variable(m, r_l0add_d_[i=P, j=P2, l=L], lower_bound=0.0, 
              )
               #upper_bound=rl0ub0d)
 
     #########
+    ## retr. expanded dis.
     @variable(m, r_e_c_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]], 
               lower_bound=0.0)
-    #########
-    
-    # retrofit-expansion loan
+    ## retr. retrofit-expansion loan
     rleub0d = maximum(p.r_le_ub)
+    ## retr. loan expansion
     @variable(m, r_le[i=P, j=P2, l=L],
               lower_bound=0.0
              # , upper_bound=rleub0d
              )
+    ## retr. loan exp dis.
     @variable(m, r_le_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    ## retr. loan exp dis. link: le->leadd
     @variable(m, r_le_pd_[i=P, j=P2, l=L, (sT, sF)], 
               lower_bound=0.0
              # , upper_bound=rleub0d
              )
-    #
+    ## retr. loan exp add
     @variable(m, r_leadd[i=P, j=P2, l=L] 
               # upper_bound=rleub0d
              )
+    ## retr. exp add
     @variable(m, r_leadd_d_[i=P, j=P2, l=L], lower_bound=0.0 
              # upper_bound=rleub0d
              )
-
-
+    ## retr. exp dis. link loan 
     @variable(m, r_le_ped_[i=P, j=P2, l=L, (sT, sF)], 
               lower_bound=0.0
              # , upper_bound=rleub0d
              )
+    ## retr. exp add loan
     @variable(m, r_leadde[i=P, j=P2, l=L], lower_bound=0.0, 
              # upper_bound=rleub0d
              )
+    ## retr. exp add loan dis.
     @variable(m, r_leadde_d_[i=P, j=P2, l=L], lower_bound=0.0, 
              # upper_bound=rleub0d
              )
-
-
     # retrofit base annuity
     @variable(m, r_ann0[i=P, j=P2, l=L])
     @variable(m, r_ann0_0[i=P, j=P2, l=L] >= 0.0)
@@ -3039,10 +3048,10 @@ function attachLocationBlock(m::Model, p::params, s::sets)
     n_ups_e_mt_in = m[:n_ups_e_mt_in]
     # 25
     # aggregate demand constraint
-    # @constraint(m, ag_dem_l_link_i_[i=P, j=P2],
-    #             sum(o_cp[i, j, l] for l in L) + sum(n_cp[i, j, l] for l in L)
-    #             >= p.demand[i, j]
-    #            )
+    @constraint(m, ag_dem_l_link_i_[i=P, j=P2],
+                sum(o_cp[i, j, l, p.key_node] for l in L) + 
+                sum(n_cp[i, j, l, p.key_node] for l in L) >= p.demand[i, j]
+               )
 
     # 26 debug
     #@constraint(m, ag_co2_l_link_i_[i=P, j=P2],

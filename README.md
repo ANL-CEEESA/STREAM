@@ -3,7 +3,7 @@
 
 
 
-<p class="aligncenter"> <img src="./docs/docs/img/2025_logo.png" width="40%" height="40%" title="stre3am fr"> </p>
+<p class="aligncenter"> <img src=".docs/assets/images/2025_logo.png" width="40%" height="40%" title="stre3am fr"> </p>
 
 The Strategic Technology Roadmapping and Energy, Environmental, and Economic
 Analysis Model **STRE<sup>3</sup>AM** is an optimization-based modeling tool and
