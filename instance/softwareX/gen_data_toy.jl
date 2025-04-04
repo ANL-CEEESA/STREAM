@@ -5,7 +5,8 @@ using Printf
 using LinearAlgebra
 using stre3am
 
-
+# Generate the f0.xlsx input
+#
 # 80 ###########################################################################
 fac_f = "./samples/sample_cs_n=10.csv"
 fuel_f = "./samples/sample_cs_ff_n=10.csv"

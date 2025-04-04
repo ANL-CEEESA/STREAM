@@ -62,18 +62,16 @@ def pltrcparams():
 
 
 # 80############################################################################
-def main():
-    try:
-        arg = sys.argv[1]
-    except IndexError:
-        raise SystemExit(f"Usage: {sys.argv[0]} <string>")
+def all_bars(rf, fmt):
     pltrcparams()
     #reference folder
-    rf = arg
+    #rf = arg
 
     y0 = 2020
     yend = 2026
     p_scale = 6
+
+    #fmt = "eps"
 
     plt.style.use("seaborn-v0_8-colorblind")
     plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
@@ -101,32 +99,32 @@ def main():
         "#6a5ee6",
     ]
 
-    rlf = "retro_labels.csv"
-    nlf = "new_labels.csv"
+    rlf = rf + "/retro_labels.csv"
+    nlf = rf + "/new_labels.csv"
 
     drl = pd.read_csv(rlf)
     labr = drl.iloc[:,0].to_list()
     dnl = pd.read_csv(nlf)
     labn = dnl.iloc[:,0].to_list()
 
-    x_label = "Period"
+    x_label = "Subperiod"
 
-    plot_legend(rf, folder, colors, labr, labn)
+    plot_legend(rf, folder, colors, labr, labn, fmt)
 
-    plot_capacities(rf, folder, colors, labr, labn, xaxislabel=x_label)
-    plot_cumulative_expansion(rf, folder, colors, xaxislabel=x_label)
-    plot_ep1(rf, folder, colors, labr, labn, xaxislabel=x_label)
-    plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=x_label)
-    plot_emisions(rf, folder, xaxislabel=x_label)
-    plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_capacities(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
+    plot_cumulative_expansion(rf, folder, colors, fmt, xaxislabel=x_label)
+    plot_ep1(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
+    plot_elec_by_tech(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
+    plot_emisions(rf, folder, fmt, xaxislabel=x_label)
+    plot_bar_by_loc(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
     # # plot_pie_by_loc(rf, folder, colors, labr, labn)
-    plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=x_label)
-    plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_em_bar_v2(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
+    plot_co2_cap_bar(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
 
-    plot_capf(rf, folder, colors, labr, labn, xaxislabel=x_label)
+    plot_capf(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
 
 # 80############################################################################
-def plot_emisions(rf, folder, xaxislabel=None):
+def plot_emisions(rf, folder, fmt, xaxislabel=None):
     emf = rf +"/em.csv"
     df = pd.read_csv(emf)
 
@@ -140,7 +138,7 @@ def plot_emisions(rf, folder, xaxislabel=None):
         xvals = df.iloc[:, 0]
         w = (df.iloc[1, 0] - df.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(df.shape[0])
+        xvals = np.arange(1, df.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -179,16 +177,16 @@ def plot_emisions(rf, folder, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "co2b.png", dpi=300, format="png")
+    f.savefig(folder + f"co2b.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_co2.png")
+    export_legend(legend_object, folder + "legend_co2", fmt)
 
 
 # 80############################################################################
-def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_capacities(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     cprf = rf + "/drcp.csv"
     cpnf = rf + "/dncp.csv"
     demf = rf + "/demand.csv"
@@ -207,7 +205,7 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = dfr.iloc[:, 0]
         w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(dfr.shape[0])
+        xvals = np.arange(1, dfr.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -231,7 +229,7 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     a.plot(xvals, dfd.iloc[:, 0],
            label="Demand", lw=2, color="blue", ls="--", marker="*")
 
-    a.set_title("(a) (STREAM) Cement Production/Demand")
+    a.set_title("Capacity/Demand")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -243,16 +241,16 @@ def plot_capacities(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "demand-.png", dpi=300, format="png")
+    f.savefig(folder + f"demand-.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_cap.png")
+    export_legend(legend_object, folder + "legend_cap", fmt)
 
 
 # 80############################################################################
-def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
+def plot_electricity(rf, folder, colors, labr, labni, fmt, xaxislabel=None):
     uf = rf +"/u.csv"
     infof = rf + "/s_info.csv"
 
@@ -263,7 +261,7 @@ def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
         xvals = df.iloc[:,0]
         w = (df.iloc[1, 0] - df.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(df.shape[0])
+        xvals = np.arange(1, df.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -288,16 +286,16 @@ def plot_electricity(rf, folder, colors, labr, labni, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "u.png", dpi=300, format="png")
+    f.savefig(folder + f"u.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend.png")
+    export_legend(legend_object, folder + "legend", fmt)
 
 
 # 80############################################################################
-def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_loans(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
 
     rlf = rf + "/drloan.csv"
     drl = pd.read_csv(rlf)
@@ -312,7 +310,7 @@ def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = drl.iloc[:,0]
         w = (drl.iloc[1, 0] - drl.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(drl.shape[0])
+        xvals = np.arange(1, drl.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -379,16 +377,16 @@ def plot_loans(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(x)
 
-    f.savefig(folder + "loans.png", dpi=300, format="png")
+    f.savefig(folder + f"loans.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_loan.png")
+    export_legend(legend_object, folder + "legend_loan", fmt)
 
 
 # 80############################################################################
-def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_ep1(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     rep1f = rf + "/drep1.csv"
     nep1f = rf + "/dnep1.csv"
     demf = rf + "/demand.csv"
@@ -403,7 +401,7 @@ def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = drep1.iloc[:,0]
         w = (drep1.iloc[1, 0] - drep1.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(drep1.shape[0])
+        xvals = np.arange(1, drep1.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -425,7 +423,7 @@ def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max()
 
-    a.set_title("(b) (STREAM) Scope 1 Cement Emission (em.)")
+    a.set_title("Emission")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -436,16 +434,16 @@ def plot_ep1(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "ep1ge.png", dpi=300, format="png")
+    f.savefig(folder + f"ep1ge.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_ep1.png")
+    export_legend(legend_object, folder + "legend_ep1", fmt)
 
 
 # 80############################################################################
-def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_elec_by_tech(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     ruf = rf + "/dru.csv"
     nuf = rf + "/dnu.csv"
     infof = rf + "/s_info.csv"
@@ -459,7 +457,7 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = dru.iloc[:, 0]
         w = (dru.iloc[1, 0] - dru.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(dru.shape[0])
+        xvals = np.arange(1, dru.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -483,7 +481,7 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
 
     ymax = b.max()
 
-    a.set_title("(c) (STREAM) Cement Electricity consumption")
+    a.set_title("Electricity consumption")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -495,16 +493,16 @@ def plot_elec_by_tech(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "u_by_rf.png", dpi=300, format="png")
+    f.savefig(folder + f"u_by_rf.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_elec_rf.png")
+    export_legend(legend_object, folder + "legend_elec_rf", fmt)
 
 
 # 80############################################################################
-def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
+def plot_cumulative_expansion(rf, folder, colors, fmt, xaxislabel=None):
     ef = rf + "/dec_act.csv"
     infof = rf + "/s_info.csv"
 
@@ -517,7 +515,7 @@ def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
         xvals = de.iloc[:, 0]
         w = (de.iloc[1, 0] - de.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(de.shape[0])
+        xvals = np.arange(1, de.shape[0]+1)
         w = 0.8
 
     f, a = plt.subplots(dpi=300)
@@ -525,11 +523,11 @@ def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
 
     for col in range(1, de.shape[1]):
         a.bar(xvals, de.iloc[:, col],
-              align="edge", edgecolor="w", lw=1.5,
+              align="edge", edgecolor="w", lw=0.5,
               color=colors[1], width=w, bottom=b)
         b += de.iloc[:, col]
 
-    a.set_title("Active expansion capacity")
+    a.set_title("Installed expansion capacity")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -540,29 +538,29 @@ def plot_cumulative_expansion(rf, folder, colors, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "ec.png", format="png")
+    f.savefig(folder + f"ec.{fmt}", format=f"{fmt}")
 
     # save the legend
-    a.legend(bbox_to_anchor=(1.0, 1.0))
-    legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_ec.png")
+    # a.legend(bbox_to_anchor=(1.0, 1.0))
+    # legend_object = a.get_legend()
+    # export_legend(legend_object, folder + "legend_ec", fmt)
 
 
 # 80############################################################################
-def export_legend(legend, filename="legend.png"):
-    """Put the legend in a png different file.
+def export_legend(legend, filename, fmt):
+    """Put the legend in a {fmt} different file.
     """
     #: be sure to have  --> bbox_to_anchor=(1.0, 0.0)
     fig  = legend.figure
     fig.canvas.draw()
     bbox  = legend.get_window_extent().transformed(
-        fig.dpi_scale_trans.inverted()
-    )
-    fig.savefig(filename, dpi=300, bbox_inches=bbox, format="png")
+        fig.dpi_scale_trans.inverted())
+    fig.savefig(filename + f".{fmt}", dpi=300,
+                bbox_inches=bbox, format=f"{fmt}")
 
 
 # 80############################################################################
-def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_bar_by_loc(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     cprf = rf + "/drcp_d_act.csv"
     cpnf = rf + "/dncp_d.csv"
     demf = rf + "/demand.csv"
@@ -582,7 +580,7 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = dfr.iloc[:, 0]
         w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(dfr.shape[0])
+        xvals = np.arange(1, dfr.shape[0]+1)
         w = 0.8
     #w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
 
@@ -613,7 +611,7 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     a.plot(xvals, dfd.iloc[:, 0],
            label="Demand", lw=2, color="darkred", ls="--", marker="*")
 
-    a.set_title("(a) (STREAM) Cement Production/Demand")
+    a.set_title("Capacity/Demand")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -625,14 +623,14 @@ def plot_bar_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "demand-loc.png", dpi=300, format="png")
+    f.savefig(folder + f"demand-loc.{fmt}", dpi=300, format=f"{fmt}")
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_demand-loc.png")
+    export_legend(legend_object, folder + "legend_demand-loc", fmt)
 
 
 # 80############################################################################
-def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_pie_by_loc(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     cprf = rf + "/drcp_d_act.csv"
     cpnf = rf + "/dncp_d.csv"
 
@@ -661,7 +659,7 @@ def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = dfr.iloc[:, 0]
         w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(dfr.shape[0])
+        xvals = np.arange(1, dfr.shape[0]+1)
         w = 0.8
 
     #w = (dfr.iloc[1, 0] - dfr.iloc[0, 0]) * 0.8
@@ -701,11 +699,11 @@ def plot_pie_by_loc(rf, folder, colors, labr, labn, xaxislabel=None):
                 ax.pie(l, colors=colors)
 
             #ax.set_title(f"loc={row}, period={col}", fontsize="small")
-    f.savefig(folder + "pie_chart.png", dpi=300, format="png")
+    f.savefig(folder + f"pie_chart.{fmt}", dpi=300, format=f"{fmt}")
 
 
 # 80############################################################################
-def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_em_bar_v2(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     # retrofits
     rcpe = rf + "/drcpe.csv"
     rfue = rf + "/drfue.csv"
@@ -745,7 +743,7 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = drcpe.iloc[:,0]
         w = (drcpe.iloc[1, 0] - drcpe.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(drcpe.shape[0])
+        xvals = np.arange(1, drcpe.shape[0]+1)
         w = 0.8
 
     b = pd.Series(np.zeros(dncpe.shape[0]))
@@ -824,7 +822,7 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = drcpe.iloc[:, 0]
         w = (drcpe.iloc[1, 0] - drcpe.iloc[0, 0]) * 0.7
     else:
-        xvals = np.arange(drcpe.shape[0])
+        xvals = np.arange(1, drcpe.shape[0]+1)
         w = 0.7
 
     last = drep1.shape[1]
@@ -888,15 +886,15 @@ def plot_em_bar_v2(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "co2_act.png", dpi=300, format="png")
+    f.savefig(folder + f"co2_act.{fmt}", dpi=300, format=f"{fmt}")
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_co2.png")
+    export_legend(legend_object, folder + "legend_co2", fmt)
 
 
 
-def plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_co2_cap_bar(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     # retrofits
     rcpe = rf + "/drcpe.csv"
     rfue = rf + "/drfue.csv"
@@ -927,7 +925,7 @@ def plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = drcpe.iloc[:,0]
         w = (drcpe.iloc[1, 0] - drcpe.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(drcpe.shape[0])
+        xvals = np.arange(1, drcpe.shape[0]+1)
         w = 0.8
 
 
@@ -963,7 +961,7 @@ def plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=None):
 
 
     ymax = b.max().max()
-    a.set_title("(b) Captured CO2")
+    a.set_title("Captured CO2")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -974,11 +972,11 @@ def plot_co2_cap_bar(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "co2_ccap.png", dpi=300, format="png")
+    f.savefig(folder + f"co2_ccap.{fmt}", dpi=300, format=f"{fmt}")
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_ccap.png")
+    export_legend(legend_object, folder + "legend_ccap", fmt)
 
 def rescale_stre3am(df, info_csv, kind):
     dinfo = pd.read_csv(info_csv)
@@ -999,7 +997,7 @@ def rescale_stre3am(df, info_csv, kind):
     return df
 
 # 80############################################################################
-def plot_legend(rf, folder, colors, labr, labn):
+def plot_legend(rf, folder, colors, labr, labn, fmt):
     f, a = plt.subplots(dpi=300)
     for i in range(len(labr)):
         a.bar([0], [0],
@@ -1008,7 +1006,7 @@ def plot_legend(rf, folder, colors, labr, labn):
 
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "rtrf_labl.png")
+    export_legend(legend_object, folder + "rtrf_labl", fmt)
 
     f, a = plt.subplots(dpi=300)
     for i in range(len(labn)):
@@ -1021,7 +1019,7 @@ def plot_legend(rf, folder, colors, labr, labn):
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "new_labl.png")
+    export_legend(legend_object, folder + "new_labl", fmt)
 
     f, a = plt.subplots(dpi=300)
     a.plot([0], [0],
@@ -1029,10 +1027,10 @@ def plot_legend(rf, folder, colors, labr, labn):
 
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "dem_labl.png")
+    export_legend(legend_object, folder + "dem_labl", fmt)
 
 
-def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
+def plot_capf(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     cprf = rf + "/dracf.csv"
     dcf = pd.read_csv(cprf)
 
@@ -1043,7 +1041,7 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = dcf.iloc[:, 0]
         w = (dcf.iloc[1, 0] - dcf.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(dcf.shape[0])
+        xvals = np.arange(1, dcf.shape[0]+1)
         w = 0.8
 
     for i in range(1, dcf.shape[1]):
@@ -1052,7 +1050,7 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
         if node == "2":
             a.step(xvals, dcf.iloc[:, i], ls="--", lw=0.5, marker=".", label=f"plnt={i}")
 
-    a.set_title("(STREAM) Cap Fact Node=2 (Existing)")
+    a.set_title("Cap Fact Node=2 (Existing)")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -1061,10 +1059,10 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "r_capf.png", dpi=300, format="png")
+    f.savefig(folder + f"r_capf.{fmt}", dpi=300, format=f"{fmt}")
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_r_capf.png")
+    export_legend(legend_object, folder + "legend_r_capf", fmt)
 
 
     cpnf = rf + "/dnacf.csv"
@@ -1076,7 +1074,7 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
         xvals = dcf.iloc[:, 0]
         w = (dcf.iloc[1, 0] - dcf.iloc[0, 0]) * 0.8
     else:
-        xvals = np.arange(dcf.shape[0])
+        xvals = np.arange(1, dcf.shape[0]+1)
         w = 0.8
 
     for i in range(1, dcf.shape[1]):
@@ -1085,7 +1083,7 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
         if node == "2":
             a.step(xvals, dcf.iloc[:, i], ls="--", lw=0.5, marker=".", label=f"plnt={i}")
 
-    a.set_title("(STREAM) Cap Fact Node=2 (New)")
+    a.set_title("Cap Fact Node=2 (New)")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -1094,10 +1092,10 @@ def plot_capf(rf, folder, colors, labr, labn, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + "n_capf.png", dpi=300, format="png")
+    f.savefig(folder + f"n_capf.{fmt}", dpi=300, format=f"{fmt}")
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, filename=folder + "legend_n_capf.png")
+    export_legend(legend_object, folder + "legend_n_capf", fmt)
 
 
 
