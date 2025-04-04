@@ -64,11 +64,15 @@ Then, at the `REPL` pressing the `]` key one should type:
 add .
 ```
 This will get `stre3am` ready to run. The final step is optional. 
-At the `STREAM` folder, the following must by typed:
+At the `STREAM` folder, the following must by typed in the terminal:
 ```
 conda env create --name stre3am --file environment.yml 
 ```
 And then activating i.e. `conda activate stre3am`.
+
+## Software X
+
+Please refer to this page for further [instructions](https://anl-ceeesa.github.io/STREAM/softwarex).
 
 ## Contributors
 
