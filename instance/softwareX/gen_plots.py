@@ -69,10 +69,7 @@ def main():
     mapname = "cb_2018_us_state_20m.zip [<1.0 MB]"
     print(mapname)
     # uncomment this line if you have the mapfile
-    # gen_map(fname,
-    #         "samples",
-    #         "./cb_2018_us_state_20m",
-    #         "png")
+    #gen_map(fname, "samples", "cb_2018_us_state_20m", "png")
 
 
 
