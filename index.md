@@ -52,23 +52,6 @@ The source is organized as follows,
     │   └── prototype
     │       └── prototype_0.xlsx
     ├── docs
-    │   ├── docs
-    │   │   ├── about.md
-    │   │   ├── img
-    │   │   │   ├── 2025_logo.png
-    │   │   │   ├── dre4m.svg
-    │   │   │   ├── dre4mnoback.svg
-    │   │   │   ├── wuy.svg
-    │   │   │   ├── xv.svg
-    │   │   │   ├── zyu.eps
-    │   │   │   └── zyu.svg
-    │   │   ├── index.md
-    │   │   ├── input.md
-    │   │   ├── javascripts
-    │   │   │   └── mathjax.js
-    │   │   ├── license.md
-    │   │   └── model.md
-    │   ├── mkdocs.yml
     │   ├── model_c # continuous model description
     │   │   ├── Makefile
     │   │   ├── bibl.bib
