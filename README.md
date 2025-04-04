@@ -40,6 +40,35 @@ objects.
 | src/       | source code       |
 | docs/      | documentation src |
 
+## Key Requirements
+
+- [Julia](https://julialang.org/downloads/)
+- [Conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/index.html)
+- [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)
+
+## Quick installation
+
+*After installing Julia, conda, and git*. 
+
+In the terminal the following should be typed.
+```
+git clone https://github.com/ANL-CEEESA/STREAM.git
+```
+This will clone the repository. Then at the `STREAM` repository, start the Julia
+`REPL` by typing in the terminal:
+```
+julia
+```
+Then, at the `REPL` pressing the `]` key one should type:
+```
+add .
+```
+This will get `stre3am` ready to run. The final step is optional. 
+At the `STREAM` folder, the following must by typed:
+```
+conda env create --name stre3am --file environment.yml 
+```
+And then activating i.e. `conda activate stre3am`.
 
 ## Contributors
 

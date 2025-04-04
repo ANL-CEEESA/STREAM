@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
+
 # Copyright (C) 2023, UChicago Argonne, LLC
 # All Rights Reserved
-# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy, 
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy,
 # Environmental, and Economic Analysis Model
 # By: Argonne National Laboratory
 # BSD-3 OPEN SOURCE LICENSE
@@ -34,57 +36,43 @@
 # vim: expandtab colorcolumn=80 tw=80
 
 # written by @dthierry 2025
-# prototype.jl
-# notes: This is the case study for the software X paper. Be sure to check the
-# instructions at the README.md
-#
-#
-#80#############################################################################
 
 
-using stre3am
-using JuMP
-using HiGHS
+import sys
+sys.path.insert(1, "../../src/stre3am_d/util/toy/")
+from bars import all_bars
+from switches import all_switches
+from map_res import gen_map
 
 
-pr = prJrnl(@__FILE__)
-setJrnlTag!(pr, "_DEBUG")
-jrnlst!(pr, jrnlMode(0))
+def print_disclaimer():
+    disclaimer_text = """
+    DISCLAIMER: Please read the README.md before running this script.
+    Make sure you have run the Julia files, `gen_data_toy.jl` `prototype.jl`
+    BEFORE you run this script.
+    Also make sure you have created the environment with the environment.yml at
+    the root directory of STRE3AM.
+    """
 
-# input file (make sure it was generated before.)
-f = "./f0.xlsx"
+def main():
+    print_disclaimer()
 
-# internal data structure
-p = read_params(f);
-@info "Data has been loaded.\n"
+    with open("most_recent_run.txt") as f:
+        fname = f.readlines()[0]
 
-# sets
-s = sets(p)
-@info "Sets have been created.\n"
+    all_bars(fname, "png")
+    all_switches(fname, "png")
 
-
-# model
-@info "Creating model.\n"
-m = createBlockMod(s.P, s.L, p, s)
-
-# linking constraints
-attachPeriodBlock(m, p, s)
-attachLocationBlock(m, p, s)
-
-# objective function
-attachFullObjectiveBlock(m, p, s)
-
-set_optimizer(m, HiGHS.Optimizer)
-
-# (optional) load a discrete state (upper bound)
-load_discrete_state(m, p, s)
-set_attribute(m, "time_limit", 5.0)
-
-# call solver
-@info "Solve.\n"
-optimize!(m)
-# generate result files
-fname = postprocess_d(m, p, s, f)
+    print("To plot the map please donwload the shapefile from the website:")
+    link = "https://www.census.gov/geographies/mapping-files/time-series/geo/carto-boundary-file.html"
+    print(link)
+    mapname = "cb_2018_us_state_20m.zip [<1.0 MB]"
+    print(mapname)
+    # uncomment this line if you have the mapfile
+    #gen_map(fname, "samples", "cb_2018_us_state_20m", "png")
 
 
 
+
+if __name__ == "__main__":
+    main()

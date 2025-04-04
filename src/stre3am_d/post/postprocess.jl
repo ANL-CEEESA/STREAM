@@ -1030,6 +1030,10 @@ function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     folder = gen_folder()
     @info "output folder : $(folder)"
     mkdir(folder)
+    
+    open("most_recent_run.txt", "w") do file
+        write(file, folder)
+    end
 
     dr = write_rcp(m, p, s, folder)
     dn = write_ncp(m, p, s, folder)
