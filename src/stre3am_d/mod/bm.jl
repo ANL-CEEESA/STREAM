@@ -38,7 +38,8 @@
 # notes: Model (block)
 # notes of 10-29:
 # added variables, r_x_in_d_, r_x_out_d_, r_mass_b_e_, r_comp_link_e_
-#
+# noes of 08-04-25
+# try out a  new matrix for loans, and a payment *window*
 #
 #80#############################################################################
 
@@ -109,6 +110,67 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # True/False
     sT = 1 # p.sTru
     sF = sT + 1 # p.sFal  # offline
+
+    
+    yr_subperiod = p.yr_subperiod
+    n_subperiods = p.n_subperiods
+    n_periods = p.n_periods
+    
+    loan_years = 30
+    
+    loan_subperiods = div(loan_years, yr_subperiod) 
+    remain_loan_years = loan_years - loan_subperiods
+
+    loan_periods = div(loan_subperiods, n_subperiods)
+    remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
+
+    # add another subperiod if there are more years leftover
+    remain_sub_loan = remain_loan_years > 0 ? remain_subp_loan + 1 : remain_subp_loan
+
+    # create the window of loan and payment
+    loan_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    pay_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+
+    for i in s.P
+        for j in s.P2
+            loan_list = []
+            for j1 in j:n_subperiods
+                push!(loan_list, (i, j1))
+            end
+            if i < n_periods
+                for i1 in (i+1):n_periods
+                    for j1 in 1:n_subperiods
+                        push!(loan_list, (i1, j1))
+                    end
+                end
+            end
+            loan_window[i, j] = loan_list
+        end
+    end
+
+    for i in s.P
+        for j in s.P2
+            global paym_list = []
+            k = 0
+            for j1 in j:n_subperiods
+                if k == loan_subperiods
+                    break
+                end
+                push!(paym_list, (i, j1))
+                k += 1
+            end
+            for i1 in (i+1):n_periods
+                for j1 in 1:n_subperiods
+                    if k == loan_subperiods
+                        break
+                    end
+                    push!(paym_list, (i1, j1))
+                    k += 1
+                end
+            end
+            pay_window[i, j] = paym_list
+        end
+    end
     
     # 76 
     # 76 #######################################################################
@@ -237,13 +299,13 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ## retr. o&m var
     @variable(m, r_cvonm[i=P, j=P2, l=L]) 
     ## retr. loan state
-    @variable(m, r_loan[i=P, j=P2, l=L]) #upper_bound=p.r_loan_bM[l])
+    #@variable(m, r_loan[i=P, j=P2, i1=P, j1=P2, l=L])
+    #
+    # we need to capture the remaining loan amount to let the 
+    @variable(m, r_loan[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=s.L; in((i, j),loan_window[i0, j0])])
     ## retr. loan positive
-    @variable(m, r_loan_p[i=P, j=P2, l=L] >= 0.0)
     ## retr. loan neg
-    @variable(m, r_loan_n[i=P, j=P2, l=L] >= 0.0)
     ## retr. pay state
-    @variable(m, r_yps[i=P, j=P2, l=L], Bin)  # paid or not
     ## retrofit loan
     rl0ub0d = maximum(p.r_l0_ub)
     ## retr. loan 0
@@ -305,28 +367,19 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
              # upper_bound=rleub0d
              )
     # retrofit base annuity
-    @variable(m, r_ann0[i=P, j=P2, l=L])
-    @variable(m, r_ann0_0[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, r_ann0_1[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, r_ann0_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    @variable(m, r_pay[i=s.P, j=s.P2, l=L])
+    @variable(m, r_paye[i=s.P, j=s.P2, l=L])
+    #@variable(m, r_pay[i=P, j=P2, i1=P, j1=P2, l=L])
+    #@variable(m, r_pay_d_[i=P, j=P2, i1=P, j1=P2, l=L, k=Kr; r_filter[l, k]])
 
     # retrofit-expansion annuity 
-    @variable(m, r_anne[i=P, j=P2, l=L])
-    @variable(m, r_anne_0[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, r_anne_1[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, r_anne_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
+    #@variable(m, r_anne[i=P, j=P2, l=L])
+    #@variable(m, r_anne_d_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]])
 
     # retrofit payment
-    @variable(m, r_pay0[i=P, j=P2, l=L], lower_bound=0.0, 
-              #upper_bound=p.r_ann0_bM[l])
-             )
-    @variable(m, r_pay0_1[i=P, j=P2, l=L] >= 0.0)
     
     # retrofit-expansion payment
-    @variable(m, r_paye[i=P, j=P2, l=L], lower_bound=0.0, 
-             )
              # upper_bound=p.r_anne_bM[l])
-    @variable(m, r_paye_1[i=P, j=P2, l=L] >= 0.0)
 
     # expansion capacity loan
     @variable(m, e_ladd[i=P, j=P2, l=L], lower_bound=0.0, 
@@ -338,11 +391,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, e_l_d_[i=P, j=P2, l=L, (sT, sF)] >= 0.0) # disaggregated
     @variable(m, e_l_pd_[i=P, j=P2, l=L, (sT, sF)], lower_bound=0.0, 
               upper_bound=p.e_l_ub[l])
-    @variable(m, e_yps[i=P, j=P2, l=L], Bin) # 1 if paid, 0 otw
 
-    @variable(m, e_loan[i=P, j=P2, l=L], upper_bound=p.e_loan_ub[l])
-    @variable(m, e_loan_p[i=P, j=P2, l=L] >= 0.0)
-    @variable(m, e_loan_n[i=P, j=P2, l=L] >= 0.0)
 
     @variable(m, e_ann[i=P, j=P2, l=L])
     # only true
@@ -352,8 +401,8 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     @variable(m, e_pay[i=P, j=P2, l=L], lower_bound=0.0, 
               upper_bound=p.e_pay_ub[l])
-    @variable(m, e_pay_1[i=P, j=P2, l=L])
 
+    @variable(m, e_loan[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=s.L; in((i, j),loan_window[i0, j0])])
 
     # d090423
     # retirement cost
@@ -385,6 +434,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, n_l[i=P, j=P2, l=L], lower_bound=0, upper_bound=p.n_l_bM[l])
 
     @variable(m, n_ann_d_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]] >= 0)
+    
     @variable(m, n_ann[i=P, j=P2, l=L])
     @variable(m, n_ann_0[i=P, j=P2, l=L]>=0)
     @variable(m, n_ann_1[i=P, j=P2, l=L]>=0)
@@ -396,14 +446,13 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     @variable(m, n_l_pd_[i=P, j=P2, l=L, (sT, sF)] >= 0, 
               upper_bound=p.n_l_bM[l])
 
-    @variable(m, n_loan[i=P, j=P2, l=L], upper_bound=p.n_loan_bM[l])
-    @variable(m, n_loan_p[i=P, j=P2, l=L] >= 0, upper_bound=p.n_loan_bM[l])
-    @variable(m, n_loan_n[i=P, j=P2, l=L] >= 0)
-    @variable(m, n_yps[i=P, j=P2, l=L], Bin)
+    
+    @variable(m, n_loan[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=s.L; in((i, j),loan_window[i0, j0])])
+    @variable(m, n_pay[i=s.P, j=s.P2, l=L])
+    
+    #@variable(m, n_pay[i=P, j=P2, l=L], lower_bound=0.0, 
+    #          upper_bound=p.n_pay_bM[l])
 
-    @variable(m, n_pay[i=P, j=P2, l=L], lower_bound=0.0, 
-              upper_bound=p.n_pay_bM[l])
-    @variable(m, n_pay_1[i=P, j=P2, l=L] >= 0)
     
     # 76 
     # 76 #######################################################################
@@ -840,50 +889,81 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 e_l_pd_[i, j, l, sT] + e_l_pd_[i, j, l, sF]
                )
 
-    # load
-    @constraint(m, e_loan_s_e_[i=P, j=P2, l=L],
-                e_loan[i, j, l] == e_loan_p[i, j, l] - e_loan_n[i, j, l]
-               )
-    @constraint(m, e_loan_p_m0_i_[i=P, j=P2, l=L],
-                e_loan_p[i, j, l] <= p.e_loan_ub[l] * (1 - e_yps[i, j, l])
-               )
-    @constraint(m, e_loan_n_m0_i_[i=P, j=P2, l=L],
-                e_loan_n[i, j, l] <= p.e_loan_ub[l] * e_yps[i, j, l]
-               )
-    # pay
-    @constraint(m, e_pay_s_e_[i=P, j=P2, l=L],
-                e_pay[i, j, l] == e_pay_1[i, j, l]
-               )
-    @constraint(m, e_pay_n_m0_i_[i=P, j=P2, l=L],
-                e_pay_1[i, j, l] <= p.e_pay_ub[l] * (1 - e_yps[i, j, l])
-               )
-    # annuity
-    @constraint(m, e_ann_s_e_[i=P, j=P2, l=L],
-                e_ann[i, j, l] == e_ann_0[i, j, l] + e_ann_1[i, j, l]
-               )
-    @constraint(m, e_ann_0_m_i_[i=P, j=P2, l=L],
-                e_ann_0[i, j, l] <= p.e_ann_ub[l] * e_yps[i, j, l]
-               )
-    @constraint(m, e_ann_1_m_i_[i=P, j=P2, l=L],
-                e_ann_1[i, j, l] <= p.e_ann_ub[l] * (1 - e_yps[i, j, l])
-               )
-    @constraint(m, e_ann_dpay0_e_[i=P, j=P2, l=L],
-                e_ann_1[i, j, l] == e_pay_1[i, j, l]
-               )
-
-    #logic
-    @constraint(m, e_logic_yps_ye[i=P, j=P2, l=L; j>fP2],
-                (y_e[i, j, l] - y_e[i, j-1, l]) + e_yps[i, j, l] <= 1
-               )
     # 76 
     # 76 #######################################################################
     ##
     # -> expansion loan balance
-    @constraint(m, e_loan_bal_y_e_[i=P, j=P2, l=L; j<n_subperiods],
-                e_loan[i, j+1, l] == e_loan[i, j, l] * (1+p.interest)^p.yr_subperiod
-                - e_pay[i, j, l]*sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                + e_ladd[i, j, l] * (1+p.interest)^(p.yr_subperiod-1)
+    @constraint(m, def_e_pay[i0=s.P, j0=s.P2, l=L], 
+                e_pay[i0, j0, l] == e_ladd[i0, j0, l] / loan_subperiods
                )
+
+    # -> loan balance
+    #
+    @constraint(m, e_loan_bal_intrap_0[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                     in((i, j),loan_window[i0, j0]) 
+                                     && in((i, j), pay_window[i0, j0])
+                                     && j<n_subperiods
+                                     && (i0,j0)==(i,j)],
+                e_loan[i, j+1, i0, j0, l] == 
+                - e_pay[i0, j0, l] 
+                + e_ladd[i0, j0, l]
+               )
+
+    @constraint(m, e_loan_bal_intrap[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                   in((i, j),loan_window[i0, j0]) 
+                                   && in((i, j), pay_window[i0, j0])
+                                   && j<n_subperiods
+                                   && (i0,j0)!=(i,j)],
+                e_loan[i, j+1, i0, j0, l] == 
+                e_loan[i, j, i0, j0, l] 
+                - e_pay[i0, j0, l]
+               )
+
+    @constraint(m, e_loan_bal_intra_unpay[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                        in((i,j), loan_window[i0, j0])
+                                        && !((i, j) in pay_window[i0, j0]) 
+                                        && j<n_subperiods],
+                e_loan[i, j+1, i0, j0, l] == e_loan[i, j, i0, j0, l]
+               )
+    
+    ## ## ##
+    # case 0 (only one per time-slice)
+    @constraint(m, e_loan_bal_per_0[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                  in((i, n_subperiods),loan_window[i0, j0])
+                                  && in((i, n_subperiods), pay_window[i0, j0])
+                                  && i < n_periods
+                                  && (i0, j0) == (i,n_subperiods)],
+                e_loan[i+1, 1, i0, j0, l] == 
+                - e_pay[i0, j0, l] 
+                + e_ladd[i0, j0, l]
+               )
+
+    # case 1
+    @constraint(m, e_loan_bal_per[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                in((i, n_subperiods),loan_window[i0, j0])
+                                && in((i, n_subperiods), pay_window[i0, j0])
+                                && i < n_periods
+                                && (i0,j0) != (i,n_subperiods)],
+                e_loan[i+1, 1, i0, j0, l] == 
+                e_loan[i, n_subperiods, i0, j0, l]
+                - e_pay[i0, j0, l]
+               )
+
+    # case 2
+    @constraint(m, e_loan_bal_per_unpay[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                      in((i,n_subperiods), loan_window[i0, j0])
+                                      && !in((i,n_subperiods), pay_window[i0, j0])
+                                      && i<n_periods],
+                e_loan[i+1, 1, i0, j0, l] == 
+                e_loan[i, n_subperiods, i0, j0, l]
+               )
+    ## ## ##
+    #
+    # @constraint(m, e_loan_bal_y_e_[i=P, j=P2, l=L; j<n_subperiods],
+    #             e_loan[i, j+1, l] == e_loan[i, j, l] * (1+p.interest)^p.yr_subperiod
+    #             - e_pay[i, j, l]*sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
+    #             + e_ladd[i, j, l] * (1+p.interest)^(p.yr_subperiod-1)
+    #            )
 
     # 76 
     # 76 #######################################################################
@@ -1297,31 +1377,31 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ##
     # -> retrofit disagg base payment (associated with the payment)
     # in units of usd/year
-    @constraint(m, r_ann0_md_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
-                r_ann0_d_[i, j, l, k] == 
-                p.r_Ann[i, j, l, k] * r_l0_d_[i, j, l, k]
-               ) # uses c0+expc
-    @constraint(m, r_ann_mm_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
-                r_ann0_d_[i, j, l, k] <= p.r_ann0_bM[l] * y_r[i, j, l, k]
-               )
-    @constraint(m, r_ann_s_e_[i=P, j=P2, l=L],
-                r_ann0[i, j, l] == 
-                sum(r_ann0_d_[i, j, l, k] for k in Kr if r_filter[l, k])
-               )
+    #@constraint(m, r_pay_md_e_[i=P, j=P2, i1=P, j1=P2, l=L, k=Kr; r_filter[l, k]],
+    #            r_pay_d_[i, j, i1, j1, l, k] == 
+    #            p.r_Ann[i, j, l, k] * r_l0_d_[i, j, l, k]
+    #           ) # uses c0+expc
+    #@constraint(m, r_ann_mm_i_[i=P, j=P2, i1=P, j1=P2, l=L, k=Kr; r_filter[l, k]],
+    #            r_pay_d_[i, j, i1, j1, l, k] <= p.r_pay_bM[l] * y_r[i, j, l, k]
+    #           )
+    #@constraint(m, r_ann_s_e_[i=P, j=P2, i1=P, j1=P2, l=L],
+    #            r_pay[i, j, i1, j1, l] == 
+    #            sum(r_pay_d_[i, j, i1, j1, l, k] for k in Kr if r_filter[l, k])
+    #           )
     ## -> retrofit expansion payment
-    @constraint(m, r_anne_md_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
-                r_anne_d_[i, j, l, k] == 
-                p.r_Ann[i, j, l, k] * r_le_d_[i, j, l, k]
-               ) # uses c0+expc
+    #@constraint(m, r_anne_md_e_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+    #            r_anne_d_[i, j, l, k] == 
+    #            p.r_Ann[i, j, l, k] * r_le_d_[i, j, l, k]
+    #           ) # uses c0+expc
 
-    @constraint(m, r_anne_mm_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
-                r_anne_d_[i, j, l, k] <= p.r_anne_bM[l] * y_r[i, j, l, k]
-               )
+    #@constraint(m, r_anne_mm_i_[i=P, j=P2, l=L, k=Kr; r_filter[l, k]],
+    #            r_anne_d_[i, j, l, k] <= p.r_anne_bM[l] * y_r[i, j, l, k]
+    #           )
 
-    @constraint(m, r_anne_s_e_[i=P, j=P2, l=L],
-                r_anne[i, j, l] == 
-                sum(r_anne_d_[i, j, l, k] for k in Kr if r_filter[l, k])
-               )
+    #@constraint(m, r_anne_s_e_[i=P, j=P2, l=L],
+    #            r_anne[i, j, l] == 
+    #            sum(r_anne_d_[i, j, l, k] for k in Kr if r_filter[l, k])
+    #           )
 
     # 76 
     # 76 #######################################################################
@@ -1399,78 +1479,91 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # 76 
     # 76 #######################################################################
     ##
-    # -> loan disaggregation, r_yps = 1 if paid, 0 otw
-    @constraint(m, r_loan_ps_s_e_[i=P, j=P2, l=L],
-                r_loan[i, j, l] == r_loan_p[i, j, l] - r_loan_n[i, j, l]
-               )
-    @constraint(m, r_loan_p_m0_i_[i=P, j=P2, l=L],
-                r_loan_p[i, j, l] <= p.r_loan_ub[l] * (1 - r_yps[i, j, l])
-               )
-    # this equation might become a problem. 
-    @constraint(m, r_loan_n_m0_i_[i=P, j=P2, l=L],
-                r_loan_n[i, j, l] <= p.r_loan_ub[l] * r_yps[i, j, l]
-               )
-    # payment
-    @constraint(m, r_pay0_s_e_[i=P, j=P2, l=L],
-                r_pay0[i, j, l] == r_pay0_1[i, j, l]
-               )
-    @constraint(m, r_pay0_1_m0_i_[i=P, j=P2, l=L],
-                r_pay0_1[i, j, l] <= p.r_ann0_bM[l] * (1 - r_yps[i, j, l])
-               )
-    # annuity->payment
-    @constraint(m, r_ann0_01_s_e_[i=P, j=P2, l=L],
-                r_ann0[i, j, l] == r_ann0_0[i, j, l] + r_ann0_1[i, j, l]
-               )
-    @constraint(m, r_ann0_0_m_i_[i=P, j=P2, l=L],
-                r_ann0_0[i, j, l] <= p.r_ann0_bM[l] * r_yps[i, j, l]
-               )
-    @constraint(m, r_ann0_1_m_i_[i=P, j=P2, l=L],
-                r_ann0_1[i, j, l] <= p.r_ann0_bM[l] * (1 - r_yps[i, j, l])
-               )
-    @constraint(m, r_ann0_d0_e_[i=P, j=P2, l=L],
-                r_ann0_1[i, j, l] == r_pay0_1[i, j, l]
-               )
 
     # retrofit-expansion payment
-    @constraint(m, r_paye_s_e_[i=P, j=P2, l=L],
-                r_paye[i, j, l] == r_paye_1[i, j, l]
-               )
-    @constraint(m, r_paye_1_m0_i_[i=P, j=P2, l=L],
-                r_paye_1[i, j, l] <= p.r_anne_bM[l] * (1 - r_yps[i, j, l])
-               )
     ## retrofit-expansion->payment
-    @constraint(m, r_anne_01_s_e_[i=P, j=P2, l=L],
-                r_anne[i, j, l] == r_anne_0[i, j, l] + r_anne_1[i, j, l]
-               )
-    @constraint(m, r_anne_0_m_i_[i=P, j=P2, l=L],
-                r_anne_0[i, j, l] <= p.r_anne_bM[l] * r_yps[i, j, l]
-               )
-    @constraint(m, r_anne_1_m_i_[i=P, j=P2, l=L],
-                r_anne_1[i, j, l] <= p.r_anne_bM[l] * (1 - r_yps[i, j, l])
-               )
-    @constraint(m, r_anne_d0_e_[i=P, j=P2, l=L],
-                r_anne_1[i, j, l] == r_paye_1[i, j, l]
-               )
     # logic
-    @constraint(m, r_logic_yps_yr[i=P, j=P2, l=L; j>fP2],
-                (y_r[i, j-1, l, fKr] - y_r[i, j, l, fKr]) + r_yps[i, j, l]
-                <= 1.0
-               )
 
     # if the plant becomes retired r_pay0_p might still be positive
     # 76 
     # 76 #######################################################################
     ##
-    # -> loan balance
-    @constraint(m, r_loan_bal_y_e_[i=P, j=P2, l=L; j<n_subperiods],
-                r_loan[i, j+1, l] == 
-                r_loan[i, j, l] * (1+p.interest)^p.yr_subperiod
-                - r_pay0[i, j, l] * sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                - r_paye[i, j, l] * sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                + r_l0add[i, j, l] * (1+p.interest)^(p.yr_subperiod-1) 
-                + r_leadd[i, j, l] * (1+p.interest)^(p.yr_subperiod-1) 
-                + r_leadde[i, j, l] * (1+p.interest)^(p.yr_subperiod-1) 
+    
+    @constraint(m, def_r_pay[i0=s.P, j0=s.P2, l=L], 
+                r_pay[i0, j0, l] == r_l0add[i0, j0, l] / loan_subperiods
                )
+    @constraint(m, def_r_paye_[i0=s.P, j0=s.P2, l=L], 
+                r_paye[i0, j0, l] == r_leadd[i0, j0, l] / loan_subperiods
+               )
+
+    # -> loan balance
+    #
+    @constraint(m, loan_bal_intrap_0[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                     in((i, j),loan_window[i0, j0]) 
+                                     && in((i, j), pay_window[i0, j0])
+                                     && j<n_subperiods
+                                     && (i0,j0)==(i,j)],
+                r_loan[i, j+1, i0, j0, l] == 
+                - r_pay[i0, j0, l] 
+                - r_paye[i0, j0, l]
+                + r_l0add[i0, j0, l]
+                + r_leadd[i0, j0, l]
+               )
+
+    @constraint(m, loan_bal_intrap[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                   in((i, j),loan_window[i0, j0]) 
+                                   && in((i, j), pay_window[i0, j0])
+                                   && j<n_subperiods
+                                   && (i0,j0)!=(i,j)],
+                r_loan[i, j+1, i0, j0, l] == 
+                r_loan[i, j, i0, j0, l] 
+                - r_pay[i0, j0, l]
+                - r_paye[i0, j0, l]
+               )
+
+    @constraint(m, loan_bal_intra_unpay[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                        in((i,j), loan_window[i0, j0])
+                                        && !((i, j) in pay_window[i0, j0]) 
+                                        && j<n_subperiods],
+                r_loan[i, j+1, i0, j0, l] == r_loan[i, j, i0, j0, l]
+               )
+    
+    ## ## ##
+    # case 0 (only one per time-slice)
+    @constraint(m, loan_bal_per_0[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                  in((i, n_subperiods),loan_window[i0, j0])
+                                  && in((i, n_subperiods), pay_window[i0, j0])
+                                  && i < n_periods
+                                  && (i0, j0) == (i,n_subperiods)],
+                r_loan[i+1, 1, i0, j0, l] == 
+                - r_pay[i0, j0, l] 
+                - r_paye[i0, j0, l] 
+                + r_l0add[i0, j0, l]
+                + r_leadd[i0, j0, l]
+               )
+
+    # case 1
+    @constraint(m, loan_bal_per[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                in((i, n_subperiods),loan_window[i0, j0])
+                                && in((i, n_subperiods), pay_window[i0, j0])
+                                && i < n_periods
+                                && (i0,j0) != (i,n_subperiods)],
+                r_loan[i+1, 1, i0, j0, l] == 
+                r_loan[i, n_subperiods, i0, j0, l]
+                - r_pay[i0, j0, l]
+                - r_paye[i0, j0, l]
+               )
+
+    # case 2
+    @constraint(m, loan_bal_per_unpay[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                      in((i,n_subperiods), loan_window[i0, j0])
+                                      && !in((i,n_subperiods), pay_window[i0, j0])
+                                      && i<n_periods],
+                r_loan[i+1, 1, i0, j0, l] == 
+                r_loan[i, n_subperiods, i0, j0, l]
+               )
+    ## ## ##
+
     # 76 
     # 76 #######################################################################
     ##
@@ -1618,7 +1711,12 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                )
                
     @constraint(m, r_loan_s_e_[i=P, j=P2, l=L],  # total loan
-                r_loan_p[i, j, l] + e_loan_p[i, j, l]
+                sum(r_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
+                    if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
+                   )
+                + sum(e_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
+                    if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
+                   )
                 == t_loan_d_[i, j, l, sT] + t_loan_d_[i, j, l, sF]
                )
     # -> total payment (retrofit/existing + )
@@ -1634,10 +1732,17 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                )
     # this one includes both expansion and retrof
     @constraint(m, o_tpay_s_e_[i=P, j=P2, l=L],
-                r_pay0[i, j, l] + r_paye[i, j, l] 
-                + e_pay[i, j, l] == 
-                o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
+                sum(r_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                + sum(r_paye[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                +sum(e_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                == o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
                )
+
+    #@constraint(m, o_tpay_s_e_[i=P, j=P2, l=L],
+    #            r_pay[i, j, l]
+    #            + e_pay[i, j, l] == 
+    #            o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
+    #           )
     #
     @constraint(m, o_tpay_m1_i_[i=P, j=P2, l=L], # on
                 o_tpay_d_[i, j, l, sT] <= p.o_pay_bM[l] * y_o[i, j, l]
@@ -1763,16 +1868,6 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 sum(n_l_d_[i, j, l, k] for k in Kn if n_filter[l, k])
                )
     # -> annuity (how much we pay)
-    @constraint(m, n_ann_d0_e_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
-                n_ann_d_[i, j, l, k] == p.n_Ann[l, k] * n_l_d_[i, j, l, k]
-               )
-    @constraint(m, n_ann_m_i0_[i=P, j=P2, l=L, k=Kn; n_filter[l, k]],
-                n_ann_d_[i, j, l, k] <= p.n_ann_bM[l] * y_n[i, j, l, k]
-               )
-    @constraint(m, n_ann_s_[i=P, j=P2, l=L],
-                n_ann[i, j, l] == 
-                sum(n_ann_d_[i, j, l, k] for k in Kn if n_filter[l, k])
-               )
     
     # 76 
     # 76 #######################################################################
@@ -1802,54 +1897,74 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 n_l_pd_[i, j, l, sT] + n_l_pd_[i, j, l, sF]
                )
 
-    # loan
-    @constraint(m, n_loan_s_e_[i=P, j=P2, l=L],
-                n_loan[i, j, l] == n_loan_p[i, j, l] - n_loan_n[i, j, l]
-               )
-    @constraint(m, n_loan_p_m0_i_[i=P, j=P2, l=L],
-                n_loan_p[i, j, l] <= p.n_loan_bM[l] * (1 - n_yps[i, j, l])
-               )
-    @constraint(m, n_loan_n_m0_i_[i=P, j=P2, l=L],
-                n_loan_n[i, j, l] <= p.n_loan_bM[l] * n_yps[i, j, l]
-               )
-    # pay
-    @constraint(m, n_pay_s_e_[i=P, j=P2, l=L],
-                n_pay[i, j, l] == n_pay_1[i, j, l]
-               )
-    # note: this mechanism seems to have a lag of 1 period.
-    @constraint(m, n_pay_n_m0_i_[i=P, j=P2, l=L],
-                n_pay_1[i, j, l] <= p.n_pay_bM[l] * (1 - n_yps[i, j, l])
-               )
-    # annuity
-    @constraint(m, n_ann_s_e_[i=P, j=P2, l=L],
-                n_ann[i, j, l] == n_ann_0[i, j, l] + n_ann_1[i, j, l]
-               )
-    @constraint(m, n_ann_0_m_i_[i=P, j=P2, l=L],
-                n_ann_0[i, j, l] <= p.n_ann_bM[l] * n_yps[i, j, l]
-               )
-    @constraint(m, n_ann_1_m_i_[i=P, j=P2, l=L],
-                n_ann_1[i, j, l] <= p.n_ann_bM[l] * (1 - n_yps[i, j, l])
-               )
-    @constraint(m, n_pay_d0_e_[i=P, j=P2, l=L],
-                n_pay_1[i, j, l] == n_ann_1[i, j, l]
+
+    @constraint(m, def_n_pay[i0=s.P, j0=s.P2, l=L], 
+                n_pay[i0, j0, l] == n_ladd[i0, j0, l] / loan_subperiods
                )
 
-    # logic
-    @constraint(m, n_logic_yps_yn[i=P, j=P2, l=L; j>fP2],
-                (y_n[i, j-1, l, fKn] - y_n[i, j, l, fKn]) + n_yps[i, j, l] 
-                <= 1
+    # -> new plant loan balance
+    #
+    @constraint(m, n_loan_bal_intrap_0[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                     in((i, j),loan_window[i0, j0]) 
+                                     && in((i, j), pay_window[i0, j0])
+                                     && j<n_subperiods
+                                     && (i0,j0)==(i,j)],
+                n_loan[i, j+1, i0, j0, l] == 
+                - n_pay[i0, j0, l] 
+                + n_ladd[i0, j0, l]
                )
 
-    # 76 
-    # 76 #######################################################################
-    ##
-    # -> expansion loan balance
-    @constraint(m, n_loan_bal_y_e_[i=P, j=P2, l=L; j<n_subperiods],
-                n_loan[i, j+1, l] == 
-                n_loan[i, j, l] * (1+p.interest)^p.yr_subperiod
-                - n_pay[i, j, l] * sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                + n_ladd[i, j, l] * (1+p.interest)^(p.yr_subperiod-1)
+    @constraint(m, n_loan_bal_intrap[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                   in((i, j),loan_window[i0, j0]) 
+                                   && in((i, j), pay_window[i0, j0])
+                                   && j<n_subperiods
+                                   && (i0,j0)!=(i,j)],
+                n_loan[i, j+1, i0, j0, l] == 
+                n_loan[i, j, i0, j0, l] 
+                - n_pay[i0, j0, l]
                )
+
+    @constraint(m, n_loan_bal_intra_unpay[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=L;
+                                        in((i,j), loan_window[i0, j0])
+                                        && !((i, j) in pay_window[i0, j0]) 
+                                        && j<n_subperiods],
+                n_loan[i, j+1, i0, j0, l] == n_loan[i, j, i0, j0, l]
+               )
+    
+    ## ## ##
+    # case 0 (only one per time-slice)
+    @constraint(m, n_loan_bal_per_0[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                  in((i, n_subperiods),loan_window[i0, j0])
+                                  && in((i, n_subperiods), pay_window[i0, j0])
+                                  && i < n_periods
+                                  && (i0, j0) == (i,n_subperiods)],
+                n_loan[i+1, 1, i0, j0, l] == 
+                - n_pay[i0, j0, l] 
+                + n_ladd[i0, j0, l]
+               )
+
+    # case 1
+    @constraint(m, n_loan_bal_per[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                in((i, n_subperiods),loan_window[i0, j0])
+                                && in((i, n_subperiods), pay_window[i0, j0])
+                                && i < n_periods
+                                && (i0,j0) != (i,n_subperiods)],
+                n_loan[i+1, 1, i0, j0, l] == 
+                n_loan[i, n_subperiods, i0, j0, l]
+                - n_pay[i0, j0, l]
+               )
+
+    # case 2
+    @constraint(m, n_loan_bal_per_unpay[i=s.P, i0=s.P, j0=s.P2, l=L;
+                                      in((i,n_subperiods), loan_window[i0, j0])
+                                      && !in((i,n_subperiods), pay_window[i0, j0])
+                                      && i<n_periods],
+                n_loan[i+1, 1, i0, j0, l] == 
+                n_loan[i, n_subperiods, i0, j0, l]
+               )
+    ## ## ##
+
+
     # 76 
     # 76 #######################################################################
     ##
@@ -2442,7 +2557,13 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     # ->>
     @constraint(m, o_last_loan_s_e_[i=P, l=L], 
-                r_loan_p[i, n_subperiods, l] + e_loan_p[i, n_subperiods, l] == 
+                sum(r_loan[i, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P
+                    if in((i, n_subperiods),loan_window[i0, j0]) && !=((i,n_subperiods),(i0,j0))
+                   )
+                + sum(e_loan[i, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P
+                      if in((i, n_subperiods),loan_window[i0, j0]) && !=((i,n_subperiods),(i0,j0))
+                     ) 
+                == 
                 o_loan_last[i, l, sT] + o_loan_last[i, l, sF]
                )
     @constraint(m, o_last_loan_d_m1_i_[i=P, l=L],
@@ -2569,24 +2690,10 @@ function attachInitCond(index_l::T, m::JuMP.Model, p::params, s::sets) where T<:
                 y_n[fP, fP2, l, k] == 0  # start with no new facility
                )
 
-    # -> initial loans
-    @constraint(m, r_loan_initial_cond[l=L],
-                r_loan[fP, fP2, l] == p.r_loan0[l]
-               )
-    @constraint(m, e_loan_init_cond[l=L],
-                e_loan[fP, fP2, l] == 0.0
-               )
-    @constraint(m, n_loan_init_cond[l=L],
-                n_loan[fP, fP2, l] == 0.0
-               )
 
     e_ladd_d_ = m[:e_ladd_d_]
     @constraint(m, e_ladd_m_0_y_0_[l=L], 
                 e_ladd_d_[fP, fP2, l] <= p.e_ladd_ub[l] * y_e[fP, fP2, l]
-               )
-    e_yps = m[:e_yps]
-    @constraint(m, e_logic_yps_ye_0[l=L],
-                y_e[fP, fP2, l] + e_yps[fP, fP2, l] <= 1
                )
 end
 
@@ -2611,10 +2718,9 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
     o_loan_last = m[:o_loan_last]
 
     n_ladd = m[:n_ladd]
-    r_loan_p = m[:r_loan_p]
-    e_loan_p = m[:e_loan_p]
+    n_loan = m[:n_loan]
     t_ret_cost = m[:t_ret_cost]  # 15
-    n_loan_p = m[:n_loan_p]
+    #n_loan_p = m[:n_loan_p]
 
     o_u_cost = m[:o_u_cost]
     n_u_cost = m[:n_u_cost]
@@ -2626,6 +2732,66 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
 
     o_x_in_cost = m[:o_x_in_cost]
     n_x_in_cost = m[:n_x_in_cost]
+
+    yr_subperiod = p.yr_subperiod
+    n_subperiods = p.n_subperiods
+    n_periods = p.n_periods
+    
+    loan_years = 30
+    
+    loan_subperiods = div(loan_years, yr_subperiod) 
+    remain_loan_years = loan_years - loan_subperiods
+
+    loan_periods = div(loan_subperiods, n_subperiods)
+    remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
+
+
+    loan_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    for i in s.P
+        for j in s.P2
+            loan_list = []
+            for j1 in j:n_subperiods
+                push!(loan_list, (i, j1))
+            end
+            if i < n_periods
+                for i1 in (i+1):n_periods
+                    for j1 in 1:n_subperiods
+                        push!(loan_list, (i1, j1))
+                    end
+                end
+            end
+            loan_window[i, j] = loan_list
+        end
+    end
+
+
+    # add another subperiod if there are more years leftover
+    remain_sub_loan = remain_loan_years > 0 ? remain_subp_loan + 1 : remain_subp_loan
+    pay_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    for i in s.P
+        for j in s.P2
+            global paym_list = []
+            k = 0
+            for j1 in j:n_subperiods
+                if k == loan_subperiods
+                    break
+                end
+                push!(paym_list, (i, j1))
+                k += 1
+            end
+            for i1 in (i+1):n_periods
+                for j1 in 1:n_subperiods
+                    if k == loan_subperiods
+                        break
+                    end
+                    push!(paym_list, (i1, j1))
+                    k += 1
+                end
+            end
+            pay_window[i, j] = paym_list
+        end
+    end
+
     @objective(m, Min,
                # 1 loan
                (sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
@@ -2636,8 +2802,7 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
                 + sum(sum(sum(p.discount[i, j] * o_cvonm[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 3 loan new
-                + sum(sum(sum(p.discount[i, j] * n_pay[i, j, l] 
-                              for l in L) for j in P2) for i in P)
+                + sum(sum(sum(p.discount[i, j]*sum(n_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0])) for l in L) for j in P2) for i in P)
                 # 4 o&m new
                 + sum(sum(sum(p.discount[i, j] * n_cfonm[i, j, l] 
                               for l in L) for j in P2) for i in P)
@@ -2648,19 +2813,19 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
                               for l in L) for j in P2) for i in P)
                 # 6 last loan
                 + sum(p.discount[n_periods,n_subperiods]*
-                      o_loan_last[n_periods, l, sT]  + 
+                      o_loan_last[n_periods, l, sT] 
                       # you could avoid having oloanlast if yo is 0 at the end
                       # and cheat
-                      r_loan_p[n_periods, n_subperiods, l] + 
-                      e_loan_p[n_periods, n_subperiods, l]
+                      #e_loan_p[n_periods, n_subperiods, l]
                       for l in L)
                 # 7 last loan new
-                + sum(p.discount[n_periods,n_subperiods]*
-                      (n_loan_p[n_periods,n_subperiods,l]  + 
-                       # you could cheat by having new p at the end and aoviding
-                       # n_loan_p
-                       n_ladd[n_periods, n_subperiods, l])
-                      for l in L)
+                + p.discount[n_periods,n_subperiods] * sum( sum(n_loan[n_periods, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P if in((n_periods, n_subperiods),loan_window[i0, j0]) && !=((n_periods,n_subperiods),(i0,j0))) for l in L)
+                #+ sum(p.discount[n_periods,n_subperiods]*
+                #      (n_loan_p[n_periods,n_subperiods,l]  + 
+                #       # you could cheat by having new p at the end and aoviding
+                #       # n_loan_p
+                #       n_ladd[n_periods, n_subperiods, l])
+                #      for l in L)
                 # 8 elec
                 + sum(p.discount[i, j] * o_u_cost[i, j, l] 
                       for l in L for j in P2 for i in P)
@@ -2718,6 +2883,7 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
     y_r = m[:y_r]  # 2
     y_e = m[:y_e]  # 3
     y_n = m[:y_n]  # 4
+
     r_l0add_d_ = m[:r_l0add_d_]  # 5
     r_l0_pd_ = m[:r_l0_pd_]  # 6
     r_leadd_d_ = m[:r_leadd_d_]  # 
@@ -2727,10 +2893,8 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
     r_le_ped_ = m[:r_le_ped_]  # 
     # r_l0 = m[:r_l0]  # 7
     r_loan = m[:r_loan]  # 8
-    r_pay0 = m[:r_pay0]  # 9
     r_l0add = m[:r_l0add]  # 10
     #
-    r_paye = m[:r_paye]  # 9
     r_leadd = m[:r_leadd]  # 10
     r_leadde = m[:r_leadde]  # 10
     #
@@ -2752,9 +2916,6 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
     n_ladd = m[:n_ladd]  # 24
     x = m[:x]
     n_c0 = m[:n_c0]
-    e_yps = m[:e_yps]
-    n_yps = m[:n_yps]
-    r_yps = m[:r_yps]
     #
 
     # 1: o_logic_1
@@ -2818,17 +2979,6 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
                 - r_leadde_d_[i, fP2, l] >= 0.
                )
     # 7:
-    # 8: 
-    @constraint(m, k_loan_bal_p_link_e_[i=P, l=L; i<n_periods],
-                r_loan[i, n_subperiods, l] * (1+p.interest)^p.yr_subperiod
-                - r_pay0[i, n_subperiods, l] * sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                - r_paye[i, n_subperiods, l] * sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                + r_l0add[i, n_subperiods, l] * (1+p.interest)^(p.yr_subperiod-1)
-                + r_leadd[i, n_subperiods, l] * (1+p.interest)^(p.yr_subperiod-1)
-                + r_leadde[i, n_subperiods, l] * (1+p.interest)^(p.yr_subperiod-1)
-                - r_loan[i+1, fP2, l] == 0.
-               )
-
     # 9: 
     @constraint(m, e_logic_1_p_link_i_[i=P, l=L; i<n_periods],
                 #y_e[i+1, 0, l] >= y_e[i, n_subperiods, l]  #
@@ -2861,16 +3011,6 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
     # !!!!!!!!!
     # 12:
     # 13: 
-    @constraint(m, e_loan_bal_p_link_e_[i=P, l=L; i<n_periods],
-                #e_loan[i+1, 0, l] == e_loan[i, n_subperiods, l]
-                #- e_pay[i, n_subperiods, l]
-                #+ e_ladd[i, n_subperiods, l]
-                e_loan[i, n_subperiods, l]*(1+p.interest)^p.yr_subperiod
-                - e_pay[i, n_subperiods, l]*sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                + e_ladd[i, n_subperiods, l] * (1+p.interest)^(p.yr_subperiod-1)
-                - e_loan[i+1, fP2, l]
-                == 0.
-               )
     ####
     # 14:
     # t_ret_c_bM[l]
@@ -2909,12 +3049,6 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
                 - n_l_pd_[i, fP2, l, sF] >= -p.n_l_bM[l]
                )
     # 20: 
-    @constraint(m, n_loan_bal_p_link_e_[i=P, l=L; i<n_periods],
-                n_loan[i, n_subperiods, l] * (1+p.interest)^p.yr_subperiod
-                - n_pay[i, n_subperiods, l] * sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-                + n_ladd[i, n_subperiods, l] * (1+p.interest)^(p.yr_subperiod-1) 
-                - n_loan[i+1, fP2, l] == 0.0
-               )
     # 21: 
     @constraint(m, n_logic_0_p_link_i_[i=P, l=L; i<n_periods],
                 #y_n[i+1, 0, l, 0] <= y_n[i, n_subperiods, l, 0]
@@ -2935,23 +3069,6 @@ function attachPeriodBlock(m::Model, p::params, s::sets)
     @constraint(m, n_c0_p_link_e_[i=P, l=L; i<n_periods],
                 n_c0[i, l] - n_c0[i+1, l] == 0
                )
-
-    @constraint(m, e_logic_yps_ye_link[i=P, l=L; i>fP],
-                (y_e[i, fP2, l] - y_e[i-1, n_subperiods, l]) 
-                + e_yps[i, fP2, l]
-                <= 1
-               )
-    @constraint(m, n_logic_yps_yn_link[i=P, l=L; i>fP],
-                (y_n[i-1, n_subperiods, l, fKn] - y_n[i, fP2, l, fKn]) 
-                + n_yps[i, fP2, l] 
-                <= 1
-               )
-    @constraint(m, r_logic_yps_yr_link[i=P, l=L; i>fP],
-                (y_r[i-1, n_subperiods, l, fKr] - y_r[i, fP2, l, fKr]) 
-                + r_yps[i, fP2, l] 
-                <= 1
-               )
-
 
     m[:pblock_attached] = true
 end
@@ -3178,7 +3295,6 @@ function attachBlockObjective(m::Model, p::params, s::sets,
     o_loan_last = m[:o_loan_last]
     
     t_ret_cost = m[:t_ret_cost]  # 15
-    n_loan_p = m[:n_loan_p]
 
     o_u_cost = m[:o_u_cost]
     n_u_cost = m[:n_u_cost]
@@ -3212,7 +3328,7 @@ function attachBlockObjective(m::Model, p::params, s::sets,
                    # 6
                    + clast * o_loan_last[i_, l_, sT]
                    # 7
-                   + clast * n_loan_p[i_, n_subperiods, l_]
+                   #+ clast * n_loan_p[i_, n_subperiods, l_]
                    # 8 elec
                    + sum(p.discount[i_, j] * o_u_cost[i_, j, l_] for j in P2)
                    # 9 elec new
@@ -3278,9 +3394,6 @@ function save_discrete_state(m::JuMP.Model, p::params, s::sets)
     y_r = value.(m[:y_r])  # [i,j,l,k]
     y_n = value.(m[:y_n])  # [i,j,l,k]
 
-    r_yps = value.(m[:r_yps])  # [i,j,l]
-    e_yps = value.(m[:e_yps])  # [i,j,l]
-    n_yps = value.(m[:n_yps])  # [i,j,l]
    
     yo = DataFrame(Containers.rowtable(y_o; header=[:i, :j, :l, :y_o]))
     ye = DataFrame(Containers.rowtable(y_e; header=[:i, :j, :l, :y_e]))
@@ -3288,17 +3401,11 @@ function save_discrete_state(m::JuMP.Model, p::params, s::sets)
     yr = DataFrame(Containers.rowtable(y_r; header=[:i, :j, :l, :k, :y_r]))
     yn = DataFrame(Containers.rowtable(y_n; header=[:i, :j, :l, :k, :y_n]))
 
-    eyps = DataFrame(Containers.rowtable(e_yps; header=[:i, :j, :l, :e_yps]))
-    ryps = DataFrame(Containers.rowtable(r_yps; header=[:i, :j, :l, :e_yps]))
-    nyps = DataFrame(Containers.rowtable(n_yps; header=[:i, :j, :l, :n_yps]))
 
     CSV.write("yostate.csv", yo)
     CSV.write("yestate.csv", ye)
     CSV.write("yrstate.csv", yr)
     CSV.write("ynstate.csv", yn)
-    CSV.write("eypsstate.csv", eyps)
-    CSV.write("rypsstate.csv", ryps)
-    CSV.write("nypsstate.csv", nyps)
 end
 
 function load_discrete_state(m::JuMP.Model, p::params, s::sets)
@@ -3315,17 +3422,11 @@ function load_discrete_state(m::JuMP.Model, p::params, s::sets)
     yef="yestate.csv" 
     yrf="yrstate.csv"
     ynf="ynstate.csv" 
-    eypsf="eypsstate.csv"
-    rypsf="rypsstate.csv"
-    nypsf="nypsstate.csv"
     #
     yo = DataFrame(CSV.File(yof))
     ye = DataFrame(CSV.File(yef))
     yr = DataFrame(CSV.File(yrf))
     yn = DataFrame(CSV.File(ynf))
-    eyps = DataFrame(CSV.File(eypsf));
-    ryps = DataFrame(CSV.File(rypsf));
-    nyps = DataFrame(CSV.File(nypsf));
     
     for row in 1:size(yo)[1]
         (i, j, l) = yo[row, 1:3]
@@ -3357,20 +3458,5 @@ function load_discrete_state(m::JuMP.Model, p::params, s::sets)
         set_start_value(m[:y_n][i, j, l, k], v)
     end
     
-    for row in 1:size(eyps)[1]
-        (i, j, l) = eyps[row, 1:3]
-        v = eyps[row, 4]
-        set_start_value(m[:e_yps][i, j, l], v)
-    end
-    for row in 1:size(ryps)[1]
-        (i, j, l) = ryps[row, 1:3]
-        v = ryps[row, 4]
-        set_start_value(m[:r_yps][i, j, l], v)
-    end
-    for row in 1:size(nyps)[1]
-        (i, j, l) = nyps[row, 1:3]
-        v = nyps[row, 4]
-        set_start_value(m[:n_yps][i, j, l], v)
-    end
 
 end

@@ -623,16 +623,16 @@ function r_loan_df(m::JuMP.Model, p::params, s::sets, fname::String)
     yr = generate_yr_range(p)
     d = DataFrame("yr"=>yr)
 
-    for l in s.L
-        v = value.(m[:r_loan][:, :,l])
-        v = reshape(v', length(v))
+    #for l in s.L
+    #    v = value.(m[:r_loan][:, :,l])
+    #    v = reshape(v', length(v))
 
-        y = value.(m[:y_o][:, :,l])
-        y = reshape(y', length(y))
-        y = trunc.(Int32, y)
-        d[:, "l_$(l)"] = y.*v
-    end
-    CSV.write(fname*"/"*"drloan.csv", d)
+    #    y = value.(m[:y_o][:, :,l])
+    #    y = reshape(y', length(y))
+    #    y = trunc.(Int32, y)
+    #    d[:, "l_$(l)"] = y.*v
+    #end
+    #CSV.write(fname*"/"*"drloan.csv", d)
 end
 
 """
@@ -1041,9 +1041,9 @@ function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     write_demand(m, p, s, folder)
     em_df(m, p, s, folder)
     elec_df(m, p, s, folder)
-    n_loan_df(m, p, s, folder)
-    r_loan_df(m, p, s, folder)
-    e_loan_df(m, p, s, folder)
+    #n_loan_df(m, p, s, folder)
+    # r_loan_df(m, p, s, folder)
+    #e_loan_df(m, p, s, folder)
     tret_df(m, p, s, folder)
     write_sinfo(s, p, folder)
     
