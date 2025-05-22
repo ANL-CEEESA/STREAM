@@ -47,9 +47,9 @@ using JuMP
 using HiGHS
 
 
-pr = prJrnl(@__FILE__)
-setJrnlTag!(pr, "_DEBUG")
-jrnlst!(pr, jrnlMode(0))
+# pr = prJrnl(@__FILE__)
+# setJrnlTag!(pr, "_DEBUG")
+# jrnlst!(pr, jrnlMode(0))
 
 # input file (make sure it was generated before.)
 f = "./f0.xlsx"
