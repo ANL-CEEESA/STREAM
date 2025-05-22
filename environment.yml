@@ -6,4 +6,3 @@ dependencies:
   - matplotlib
   - pandas
   - geopandas
-prefix: /Users/dthierry/mambaforge/envs/softX
