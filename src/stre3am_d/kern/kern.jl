@@ -2270,7 +2270,6 @@ function read_params(fname)
     # input_mat::Vector{Vector{Int64}}
     sh = xf["input_mat"]
     input_mat_lengths = sh[2, 1:n_node]
-    println(input_mat_lengths)
     input_mat = Vector{Vector{Int64}}(undef, n_node)
     for i in 1:n_node # iterate by column
         v = sh[3:(3+input_mat_lengths[i]-1), i]

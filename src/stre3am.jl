@@ -50,7 +50,7 @@ include("./stre3am_c/stre3am_c.jl")
 
 include("./stre3am_d/stre3am_d.jl")
 using .stre3am_d 
-export params, write_params, read_params, sets, createBlockMod, attachPeriodBlock, attachLocationBlock, attachFullObjectiveBlock, load_discrete_state, save_discrete_state, postprocess_d, append_fuelnames!, append_units_names!, append_tech_names!, min_ep1ge!
+export params, write_params, read_params, sets, createBlockMod, attachPeriodBlock, attachLocationBlock, attachFullObjectiveBlock, load_discrete_state, save_discrete_state, postprocess_d, append_fuelnames!, append_units_names!, append_tech_names!, min_ep1ge!, vintage_terms!
 
 
 end

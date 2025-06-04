@@ -119,7 +119,7 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     loan_years = 30
     
     loan_subperiods = div(loan_years, yr_subperiod) 
-    remain_loan_years = loan_years - loan_subperiods
+    remain_loan_years = loan_years - loan_subperiods * yr_subperiod
 
     loan_periods = div(loan_subperiods, n_subperiods)
     remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
@@ -171,7 +171,25 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
             pay_window[i, j] = paym_list
         end
     end
-    
+
+    println("yr_subperiod = $(yr_subperiod)")
+    println("n_subperiods = $(n_subperiods)")
+    println("n_periods = $(n_periods)")
+    println("loan_years = $(loan_years)")
+    println("loan_subperiods = $(loan_subperiods)")
+    println("remain_loan_years = $(remain_loan_years)")
+    println("loan_periods = $(loan_periods)")
+    println("remain_subp_loan = $(remain_subp_loan)")
+    println("remain_sub_loan = $(remain_sub_loan)")
+    println("loan_window = $(loan_window)")
+    println("pay_window = $(pay_window)")
+
+    # 76 
+    # 76 #######################################################################
+    # to implement initial loan (proxy for vintage), proxy for vintage, we need
+    # (1) loan window
+    # 
+    # 
     # 76 
     # 76 #######################################################################
     # side-effects from the existing plant:
@@ -299,7 +317,6 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     ## retr. o&m var
     @variable(m, r_cvonm[i=P, j=P2, l=L]) 
     ## retr. loan state
-    #@variable(m, r_loan[i=P, j=P2, i1=P, j1=P2, l=L])
     #
     # we need to capture the remaining loan amount to let the 
     @variable(m, r_loan[i=s.P, j=s.P2, i0=s.P, j0=s.P2, l=s.L; in((i, j),loan_window[i0, j0])])
@@ -957,14 +974,6 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 e_loan[i+1, 1, i0, j0, l] == 
                 e_loan[i, n_subperiods, i0, j0, l]
                )
-    ## ## ##
-    #
-    # @constraint(m, e_loan_bal_y_e_[i=P, j=P2, l=L; j<n_subperiods],
-    #             e_loan[i, j+1, l] == e_loan[i, j, l] * (1+p.interest)^p.yr_subperiod
-    #             - e_pay[i, j, l]*sum((1+p.interest)^k for k in 0:(p.yr_subperiod-1))
-    #             + e_ladd[i, j, l] * (1+p.interest)^(p.yr_subperiod-1)
-    #            )
-
     # 76 
     # 76 #######################################################################
     ##
@@ -1717,6 +1726,9 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 + sum(e_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
                     if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
                    )
+                # this line is necessary to make sure the retirement does not
+                # avoid the instantaneous shutoff?
+                + r_l0add[i, j, l] + r_leadd[i, j, l] + e_ladd[i, j, l]
                 == t_loan_d_[i, j, l, sT] + t_loan_d_[i, j, l, sF]
                )
     # -> total payment (retrofit/existing + )
@@ -1738,12 +1750,6 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
                 == o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
                )
 
-    #@constraint(m, o_tpay_s_e_[i=P, j=P2, l=L],
-    #            r_pay[i, j, l]
-    #            + e_pay[i, j, l] == 
-    #            o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
-    #           )
-    #
     @constraint(m, o_tpay_m1_i_[i=P, j=P2, l=L], # on
                 o_tpay_d_[i, j, l, sT] <= p.o_pay_bM[l] * y_o[i, j, l]
                )
@@ -2740,7 +2746,7 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
     loan_years = 30
     
     loan_subperiods = div(loan_years, yr_subperiod) 
-    remain_loan_years = loan_years - loan_subperiods
+    remain_loan_years = loan_years - loan_subperiods * yr_subperiod
 
     loan_periods = div(loan_subperiods, n_subperiods)
     remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
@@ -2812,14 +2818,14 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
                 + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 6 last loan
-                + sum(p.discount[n_periods,n_subperiods]*
+                + (1e-06)*sum(p.discount[n_periods,n_subperiods]*
                       o_loan_last[n_periods, l, sT] 
                       # you could avoid having oloanlast if yo is 0 at the end
                       # and cheat
                       #e_loan_p[n_periods, n_subperiods, l]
                       for l in L)
                 # 7 last loan new
-                + p.discount[n_periods,n_subperiods] * sum( sum(n_loan[n_periods, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P if in((n_periods, n_subperiods),loan_window[i0, j0]) && !=((n_periods,n_subperiods),(i0,j0))) for l in L)
+                + (1e-06)*p.discount[n_periods,n_subperiods] * sum( sum(n_loan[n_periods, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P if in((n_periods, n_subperiods),loan_window[i0, j0]) && !=((n_periods,n_subperiods),(i0,j0))) for l in L)
                 #+ sum(p.discount[n_periods,n_subperiods]*
                 #      (n_loan_p[n_periods,n_subperiods,l]  + 
                 #       # you could cheat by having new p at the end and aoviding
@@ -3459,4 +3465,299 @@ function load_discrete_state(m::JuMP.Model, p::params, s::sets)
     end
     
 
+end
+
+
+
+
+"""
+    vintage_terms!(m::JuMP.Model, p::params, s::sets])
+
+Associate a vintage by proxy of cost. 
+This is associated with the cost of financing the latest plant upgrade before
+the time horizon.
+
+"""
+function vintage_terms!(m::JuMP.Model, p::params, s::sets, 
+        init_vintage::Vector{Int64})
+
+
+    P = s.P
+    P2 = s.P2
+    L = s.L
+
+    sT = 1 # p.sTru
+    sF = sT + 1 # p.sFal  # offline
+
+    yr_subperiod = p.yr_subperiod
+    n_subperiods = p.n_subperiods
+    n_periods = p.n_periods
+
+
+    ####
+    loan_years = 30
+    loan_subperiods = div(loan_years, yr_subperiod) 
+    remain_loan_years = loan_years - loan_subperiods * yr_subperiod
+    loan_periods = div(loan_subperiods, n_subperiods)
+    remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
+
+    # add another subperiod if there are more years leftover
+    remain_sub_loan = remain_loan_years > 0 ? remain_subp_loan + 1 : remain_subp_loan
+
+    # create the window of loan and payment
+    loan_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    pay_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+
+    for i in s.P
+        for j in s.P2
+            loan_list = []
+            for j1 in j:n_subperiods
+                push!(loan_list, (i, j1))
+            end
+            if i < n_periods
+                for i1 in (i+1):n_periods
+                    for j1 in 1:n_subperiods
+                        push!(loan_list, (i1, j1))
+                    end
+                end
+            end
+            loan_window[i, j] = loan_list
+        end
+    end
+
+    for i in s.P
+        for j in s.P2
+            global paym_list = []
+            k = 0
+            for j1 in j:n_subperiods
+                if k == loan_subperiods
+                    break
+                end
+                push!(paym_list, (i, j1))
+                k += 1
+            end
+            for i1 in (i+1):n_periods
+                for j1 in 1:n_subperiods
+                    if k == loan_subperiods
+                        break
+                    end
+                    push!(paym_list, (i1, j1))
+                    k += 1
+                end
+            end
+            pay_window[i, j] = paym_list
+        end
+    end
+    ####
+
+    # we need to know how many years are there left to be payed.
+    # assume that any loan is payed in 30 years (could be on the plant basis)
+    loan_base_year_amnt = 30
+
+    #init_vintage = Vector{Int64}([40, 30, 20, 10, 5])
+
+    # transform from vintage to (init) loan years.
+    init_loan_years = loan_base_year_amnt .- init_vintage
+
+    # zero-out all the negative loan years
+    init_loan_years[init_loan_years.<0] .= 0
+
+    # from years to subperiods
+    init_loan_subperiods = div.(init_loan_years, yr_subperiod) 
+    init_remain_loan_years = init_loan_years .- init_loan_subperiods .* yr_subperiod
+
+    init_loan_periods = div.(init_loan_subperiods, n_subperiods)
+    remain_subp_loan = init_loan_subperiods .- init_loan_periods .* n_subperiods
+
+
+
+    # add another subperiod if there are more years leftover
+    #remain_sub_loan = init_remain_loan_years > 0 ? remain_subp_loan + 1 : remain_subp_loan
+    remain_subp_loan[init_remain_loan_years.>0] .+= 1
+
+
+    # create the window of loan and payment
+    # init loan window is all the horizon actually
+    # init_loan_window = Dict(l=>[] for l in s.L) superfluous
+
+    init_pay_window = Dict{Int64, Vector{Tuple{Int64, Int64}}}()
+    for l in s.L
+        # skip the zero ones
+        if init_loan_subperiods[l] == 0
+            continue
+        else
+            paym_list = []
+            sp = 0 # subperiod counter
+            for i in 1:n_periods
+                for j in 1:n_subperiods
+                    if sp == init_loan_subperiods[l]
+                        break
+                    end
+                    push!(paym_list, (i, j))
+                    sp += 1
+                end
+            end
+            init_pay_window[l] = paym_list
+        end
+    end
+
+    println("init_loan_years = $(init_loan_years)")
+    println("init_loan_subperiods = $(init_loan_subperiods)")
+    println("init_remain_loan_years = $(init_remain_loan_years)")
+    println("init_loan_periods = $(init_loan_periods)")
+    println("remain_subp_loan = $(remain_subp_loan)")
+    
+    # for now we assume that the loan and payment amounts are taken from the
+    # r_Loanfact for the efficiency retrofit aka k = 1
+    loan0 = p.r_loanFact[1 ,1 ,: ,2] .* p.c0
+    pay0_yr = loan0./loan_base_year_amnt
+   
+    # simply assume the remaining loan is loan0 - vintage * pay0
+    loan0_l = loan0.-init_vintage.*pay0_yr
+    loan0_l[loan0_l.<0] .= 0.0
+
+    pay0_sp = zeros(p.n_location)
+    for l in s.L
+        if init_loan_subperiods[l] != 0
+            pay0_sp[l] = loan0_l[l]/init_loan_subperiods[l]
+        end
+    end
+
+    # attach the corresponding variables and constraints
+    S_l0 = [(i,j,l) 
+            for l in keys(init_pay_window)
+            for (i,j) in init_pay_window[l] 
+           ]
+
+    @variable(m, l0[S_l0])
+
+    @constraint(m, init_loanb_00[l=keys(init_pay_window)],
+                l0[(1, 1, l)] == loan0_l[l]
+               )
+
+    S_l0_interp = [(i,j,l) 
+                   for l in keys(init_pay_window)
+                   for (i,j) in init_pay_window[l] 
+                   if j < n_subperiods && (i,j+1) in init_pay_window[l]
+                  ]
+    @constraint(m, init_loanb_interperiod[(i,j,l)=S_l0_interp],
+                l0[(i, j+1, l)] == l0[(i, j, l)] - pay0_sp[l]
+               )
+
+    S_l0_per = [(i,j,l) 
+                for l in keys(init_pay_window)
+                for (i,j) in init_pay_window[l]
+                if i < n_periods && j == n_subperiods && (i+1,1) in init_pay_window[l]
+               ]
+
+    @constraint(m, init_loanb_period[(i,j,l)=S_l0_per],
+                l0[(i+1, 1, l)] == l0[(i, j, l)] - pay0_sp[l]
+               )
+
+    # bring the variables to local namespace
+    t_ret_cost_d_ = m[:t_ret_cost_d_]
+    y_o = m[:y_o]
+    t_loan_d_ = m[:t_loan_d_]
+    r_loan = m[:r_loan]
+    e_loan = m[:e_loan]
+    r_l0add = m[:r_l0add]
+    r_leadd = m[:r_leadd]
+    e_ladd = m[:e_ladd]
+    o_pay_d_ = m[:o_pay_d_]
+    r_pay = m[:r_pay]
+    r_paye = m[:r_paye]
+    e_pay = m[:e_pay]
+    o_tpay_d_ = m[:o_tpay_d_]
+
+
+    # constraints to be changed:
+    # 1. t_ret_c_bm_0_y_i_ (relax bm)
+    delete.(m, m[:t_ret_c_bm_0_y_i_]) # 1
+    unregister(m, :t_ret_c_bm_0_y_i_)
+    @constraint(m, t_ret_c_bm_0_y_i_[i=P, j=P2, l=L; j<n_subperiods],
+                t_ret_cost_d_[i, j, l] <= 
+                (p.t_ret_c_bM[l] + loan0_l[l]) * (y_o[i, j, l] - y_o[i, j+1, l])
+               )
+
+    # 2. r_loan_d_bm_0_y_i_ (relax bm)
+    delete.(m, m[:r_loan_d_bm_0_y_i_]) # 1
+    unregister(m, :r_loan_d_bm_0_y_i_)
+    @constraint(m, r_loan_d_bm_0_y_i_[i=P, j=P2, l=L; j<n_subperiods],
+                t_loan_d_[i, j, l, sT]  <=  # retired
+                (p.t_loan_bM[l] + loan0_l[l])* (y_o[i, j, l] - y_o[i,j+1, l])
+               )
+    # 3. r_loan_d_bm_1_y_i_ (relax bm)
+    delete.(m, m[:r_loan_d_bm_1_y_i_]) # 1
+    unregister(m, :r_loan_d_bm_1_y_i_)
+    @constraint(m, r_loan_d_bm_1_y_i_[i=P, j=P2, l=L; j<n_subperiods], 
+                t_loan_d_[i, j, l, sF] <= (p.t_loan_bM[l] + loan0_l[l]) * 
+                (1 + y_o[i,j+1, l] - y_o[i, j, l])
+               )
+    # 4. r_loan_s_e_ ( add loan term on the rhs )
+    delete.(m, m[:r_loan_s_e_]) # 1
+    unregister(m, :r_loan_s_e_)
+    S_loan_s_e_all = [(i,j,l) for i in P for j in P2 for l in L]
+    S_loan_s_e_0 = [(i,j,l) for l in keys(init_pay_window)
+                    for (i, j) in init_pay_window[l]]
+    # 
+    S_loan_s_e = setdiff(S_loan_s_e_all, S_loan_s_e_0)
+    @constraint(m, r_loan_s_e_[(i,j,l)=S_loan_s_e],
+                sum(r_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
+                    if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
+                   )
+                + sum(e_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
+                      if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
+                     )
+                + r_l0add[i, j, l] + r_leadd[i, j, l] + e_ladd[i, j, l]
+                # add the vintage
+                == t_loan_d_[i, j, l, sT] + t_loan_d_[i, j, l, sF]
+               )
+    # time slots with vintage
+    @constraint(m, r_loan_s_e_vint_[(i,j,l)=S_loan_s_e_0],
+                sum(r_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
+                    if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
+                   )
+                + sum(e_loan[i, j, i0, j0, l] for j0 in P2 for i0 in P
+                      if in((i, j),loan_window[i0, j0]) && !=((i,j),(i0,j0))
+                     )
+                + r_l0add[i, j, l] + r_leadd[i, j, l] + e_ladd[i, j, l]
+                # add the vintage
+                + l0[(i,j,l)]
+                == t_loan_d_[i, j, l, sT] + t_loan_d_[i, j, l, sF]
+               )
+    # 5. o_pay_m_1_i_ (relax bm)
+    delete.(m, m[:o_pay_m_1_i_]) # 1
+    unregister(m, :o_pay_m_1_i_)
+    @constraint(m, o_pay_m_1_i_[i=P, j=P2, l=L], # on
+                o_pay_d_[i, j, l] <= (p.o_pay_bM[l] + loan0_l[l]) * y_o[i, j, l]
+               )
+    # 6. o_tpay_s_e_ (add term)
+    delete.(m, m[:o_tpay_s_e_]) # 1
+    unregister(m, :o_tpay_s_e_)
+    @constraint(m, o_tpay_s_e_[(i,j,l)=S_loan_s_e],
+                sum(r_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                + sum(r_paye[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                +sum(e_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                == o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
+               )
+    @constraint(m, o_tpay_s_e_vint_[(i,j,l)=S_loan_s_e_0],
+                sum(r_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                + sum(r_paye[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                +sum(e_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0]))
+                # add the vintage
+                + pay0_sp[l]
+                == o_tpay_d_[i, j, l, sF] + o_tpay_d_[i, j, l, sT]
+               )
+    # 7. o_tpay_m1_i_ (relax bm)
+    delete.(m, m[:o_tpay_m1_i_]) # 1
+    unregister(m, :o_tpay_m1_i_)
+    @constraint(m, o_tpay_m1_i_[i=P, j=P2, l=L], # on
+                o_tpay_d_[i, j, l, sT] <= (p.o_pay_bM[l] + pay0_sp[l]) * y_o[i, j, l]
+               )
+    # 8. o_tpay_m0_i_ (relax bm)
+    delete.(m, m[:o_tpay_m0_i_]) # 1
+    unregister(m, :o_tpay_m0_i_)
+    @constraint(m, o_tpay_m0_i_[i=P, j=P2, l=L], # off
+                o_tpay_d_[i, j, l, sF] <= (p.o_pay_bM[l] + pay0_sp[l])*(1 - y_o[i, j, l])
+               )
 end
