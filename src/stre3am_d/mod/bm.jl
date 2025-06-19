@@ -785,14 +785,12 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
 
     @constraint(m, r_logic_onoff_1_y_i_[i=P, j=P2, l=L, k=Kr;
                                         j<n_subperiods && r_filter[l, k]],
-                y_o[i, j, l] + 1 - y_r[i, j, l, k] 
-                + y_r[i, j+1, l, k] >= 1
+                y_o[i, j, l] + 1 - y_r[i, j, l, k] + y_r[i, j+1, l, k] >= 1
                )
 
     @constraint(m, r_logic_onoff_2_y_i_[i=P, j=P2, l=L, k=Kr;
                                         j<n_subperiods && r_filter[l, k]],
-                y_o[i, j, l] + 1 - y_r[i, j+1, l, k] 
-                + y_r[i, j, l, k] >= 1
+                y_o[i, j, l] + 1 - y_r[i, j+1, l, k] + y_r[i, j, l, k] >= 1
                )
 
     # continuity
@@ -872,6 +870,15 @@ function createBlockMod(index_p::T, index_l::T, p::params, s::sets) where
     # -> expansion logic
     @constraint(m, e_logic_1_y_i_[i=P, j=P2, l=L; j<n_subperiods],
                 y_e[i, j+1, l] >= y_e[i, j, l]  # only expand in the future
+               )
+    # NOT(y_o) IMPLIES (y_e IFF y_e[t+1]) (requires two constraints, a and b)
+    # (a)
+    @constraint(m, e_logic_onoff_exp_1_i_[i=P, j=P2, l=L; j<n_subperiods],
+                y_o[i, j, l] + 1 - y_e[i, j, l] + y_e[i, j+1, l] >= 1
+               )
+    # (b)
+    @constraint(m, e_logic_onoff_exp_2_i_[i=P, j=P2, l=L; j<n_subperiods],
+                y_o[i, j, l] + 1 - y_e[i, j+1, l] + y_e[i, j, l] >= 1
                )
 
     # 76 
@@ -2703,7 +2710,7 @@ function attachInitCond(index_l::T, m::JuMP.Model, p::params, s::sets) where T<:
                )
 end
 
-function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
+function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets, tCoeff=1e-06)
 
     P2 = s.P2
     P = s.P
@@ -2818,14 +2825,14 @@ function attachFullObjectiveBlock(m::JuMP.Model, p::params, s::sets)
                 + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
                               for l in L) for j in P2) for i in P)
                 # 6 last loan
-                + (1e-06)*sum(p.discount[n_periods,n_subperiods]*
+                + tCoeff*sum(p.discount[n_periods,n_subperiods]*
                       o_loan_last[n_periods, l, sT] 
                       # you could avoid having oloanlast if yo is 0 at the end
                       # and cheat
                       #e_loan_p[n_periods, n_subperiods, l]
                       for l in L)
                 # 7 last loan new
-                + (1e-06)*p.discount[n_periods,n_subperiods] * sum( sum(n_loan[n_periods, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P if in((n_periods, n_subperiods),loan_window[i0, j0]) && !=((n_periods,n_subperiods),(i0,j0))) for l in L)
+                + tCoeff*p.discount[n_periods,n_subperiods] * sum( sum(n_loan[n_periods, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P if in((n_periods, n_subperiods),loan_window[i0, j0]) && !=((n_periods,n_subperiods),(i0,j0))) for l in L)
                 #+ sum(p.discount[n_periods,n_subperiods]*
                 #      (n_loan_p[n_periods,n_subperiods,l]  + 
                 #       # you could cheat by having new p at the end and aoviding
@@ -3467,7 +3474,16 @@ function load_discrete_state(m::JuMP.Model, p::params, s::sets)
 
 end
 
-
+function check_discrete_state_file()
+    file_list = ["yostate.csv", "yestate.csv", "yrstate.csv", "ynstate.csv"]
+    for f in file_list
+        if !isfile(f)
+            @error "$(f) not found"
+            return false
+        end
+    end
+    return true
+end
 
 
 """
@@ -3609,7 +3625,8 @@ function vintage_terms!(m::JuMP.Model, p::params, s::sets,
     
     # for now we assume that the loan and payment amounts are taken from the
     # r_Loanfact for the efficiency retrofit aka k = 1
-    loan0 = p.r_loanFact[1 ,1 ,: ,2] .* p.c0
+    # note the 5 here
+    loan0 = p.r_loanFact[1 ,1 ,: ,2].*5.0 .* p.c0
     pay0_yr = loan0./loan_base_year_amnt
    
     # simply assume the remaining loan is loan0 - vintage * pay0
@@ -3761,3 +3778,131 @@ function vintage_terms!(m::JuMP.Model, p::params, s::sets,
                 o_tpay_d_[i, j, l, sF] <= (p.o_pay_bM[l] + pay0_sp[l])*(1 - y_o[i, j, l])
                )
 end
+
+function terminalValue(m::JuMP.Model, p::params, s::sets, tCoeff=1e-06)
+    P2 = s.P2
+    P = s.P
+    L = s.L
+    n_periods = p.n_periods
+    n_subperiods = p.n_subperiods
+    sT = 1 # p.sTru
+    sF = sT + 1 # p.sFal  # offline
+
+
+    n_loan = value.(m[:n_loan])
+    o_loan_last = value.(m[:o_loan_last])
+
+    loan_window = gen_loan_window(p, s)
+
+    terminal_value = tCoeff*sum(p.discount[n_periods,n_subperiods]* o_loan_last[n_periods, l, sT] for l in L)
+    +
+    tCoeff*p.discount[n_periods,n_subperiods]*sum(sum(n_loan[n_periods, n_subperiods, i0, j0, l] for j0 in P2 for i0 in P if in((n_periods, n_subperiods),loan_window[i0, j0]) && !=((n_periods,n_subperiods),(i0,j0))) for l in L)
+
+    return terminal_value
+
+end
+
+"""
+    co2Total(m::JuMP.Model, p::params, s::sets)
+
+Return ta Float64 with the **scaled** amount of CO2 for all subperiods and all
+plants.
+"""
+function co2Total(m::JuMP.Model, p::params, s::sets)
+    P = s.P
+    P2 = s.P2
+    L = s.L
+    o_ep1ge = value.(m[:o_ep1ge]);  # 27
+    n_ep1ge = value.(m[:n_ep1ge]); # 28
+    o_ups_e_mt_in = value.(m[:o_ups_e_mt_in])
+    n_ups_e_mt_in = value.(m[:n_ups_e_mt_in])
+
+    co2total = sum(
+                   sum(o_ep1ge[i, j, l] for l in L)
+                   + sum(o_ups_e_mt_in[i, j, l] for l in L)
+                   + sum(n_ep1ge[i, j, l] for l in L)
+                   + sum(n_ups_e_mt_in[i, j, l] for l in L)
+                   *p.yr_subperiod 
+                   for j in P2 for i in P)
+    @info "co2total unscaled $(co2total)"
+    return co2total/p.sf_em
+end
+
+
+function gen_loan_window(p::params, s::sets)
+    yr_subperiod = p.yr_subperiod
+    n_subperiods = p.n_subperiods
+    n_periods = p.n_periods
+
+    loan_years = 30
+
+    loan_subperiods = div(loan_years, yr_subperiod) 
+    remain_loan_years = loan_years - loan_subperiods * yr_subperiod
+
+    loan_periods = div(loan_subperiods, n_subperiods)
+    remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
+
+
+    loan_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    for i in s.P
+        for j in s.P2
+            loan_list = []
+            for j1 in j:n_subperiods
+                push!(loan_list, (i, j1))
+            end
+            if i < n_periods
+                for i1 in (i+1):n_periods
+                    for j1 in 1:n_subperiods
+                        push!(loan_list, (i1, j1))
+                    end
+                end
+            end
+            loan_window[i, j] = loan_list
+        end
+    end
+    return loan_window
+end
+
+function gen_pay_window(p::params, s::sets)
+    yr_subperiod = p.yr_subperiod
+    n_subperiods = p.n_subperiods
+    n_periods = p.n_periods
+
+    loan_years = 30
+
+    loan_subperiods = div(loan_years, yr_subperiod) 
+    remain_loan_years = loan_years - loan_subperiods * yr_subperiod
+
+    loan_periods = div(loan_subperiods, n_subperiods)
+    remain_subp_loan = loan_subperiods - loan_periods * n_subperiods
+
+
+    remain_sub_loan = remain_loan_years > 0 ? remain_subp_loan + 1 : remain_subp_loan
+    pay_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    for i in s.P
+        for j in s.P2
+            global paym_list = []
+            k = 0
+            for j1 in j:n_subperiods
+                if k == loan_subperiods
+                    break
+                end
+                push!(paym_list, (i, j1))
+                k += 1
+            end
+            for i1 in (i+1):n_periods
+                for j1 in 1:n_subperiods
+                    if k == loan_subperiods
+                        break
+                    end
+                    push!(paym_list, (i1, j1))
+                    k += 1
+                end
+            end
+            pay_window[i, j] = paym_list
+        end
+    end
+    return pay_window
+end
+
+

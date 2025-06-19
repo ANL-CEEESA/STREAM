@@ -45,6 +45,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import datetime
+
 
 __author__ = "David Thierry @dthierry"
 
@@ -270,6 +272,9 @@ def gen_map(res_folder, sample_folder, map_folder, fmt):
     legend2 = axx.legend(*sc.legend_elements(**kw),
                         loc="lower right", title="tonne/yr")
                          #bbox_to_anchor=(1,1))
+    ts = datetime.datetime.now().timestamp()
+    fig.savefig(f"map_{ts}.{fmt}", format=f"{fmt}")
+    print(f"Generated map_{ts}.{fmt}\n")
+    return f"map_{ts}.{fmt}"
 
-    fig.savefig(f"map_br.{fmt}", format=f"{fmt}")
-    print(f"Generated map_br.{fmt}\n")
+

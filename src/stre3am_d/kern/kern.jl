@@ -82,7 +82,7 @@ mutable struct params
     sf_elec::Float64  # elec scale factor
     sf_em::Float64  # emission scale factor
     key_node::Int64 # key node
-
+    initial_co2::Float64 # initial co2
 
     n_rfu::Vector{Int64} # 4
     n_nfu::Vector{Int64} # 4
@@ -292,6 +292,7 @@ mutable struct params
 
     demand::Matrix{Float64} # 85
     co2_budget::Matrix{Float64} # 86
+    elec_budget::Matrix{Float64} # 86
     GcI::Array{Float64, 3}  # 87
     # process graph
     node_mat::Array{Bool, 2}
@@ -356,6 +357,7 @@ function write_params(p::params, xlsxfname::String)
                        "sf_elec",
                        "sf_em",
                        "key_node",
+                       "initial_co2",
                       ],
                       "value"=>
                       [p.n_periods,
@@ -376,7 +378,8 @@ function write_params(p::params, xlsxfname::String)
                        p.sf_heat,
                        p.sf_elec,
                        p.sf_em,
-                       p.key_node
+                       p.key_node,
+                       p.initial_co2
                       ])
         sheet = xf[1]
         XLSX.writetable!(sheet, d)
@@ -1118,6 +1121,11 @@ function write_params(p::params, xlsxfname::String)
         co2_budget = reshape(p.co2_budget', p.n_periods*p.n_subperiods)
         d = DataFrame("co2_budget" => co2_budget)
         XLSX.writetable!(sheet, d)
+        # elec_budget::Matrix{Float64}
+        sheet = XLSX.addsheet!(xf, "elec_budget")
+        elec_budget = reshape(p.elec_budget', p.n_periods*p.n_subperiods)
+        d = DataFrame("elec_budget" => elec_budget)
+        XLSX.writetable!(sheet, d)
         # GcI::Array{Float64, 3}
         sheet = XLSX.addsheet!(xf, "GcI")
         
@@ -1228,6 +1236,7 @@ function read_params(fname)
     sf_elec = sh[18, 2]
     sf_em = sh[19, 2]
     key_node = sh[20, 2]
+    initial_co2 = sh[21, 2]
     # n_rfu::Vector{Int64}
     sh = xf["n_rfu"]
     n_rfu = sh[2:n_loc+1, 1]
@@ -2248,6 +2257,18 @@ function read_params(fname)
         end
     end
     co2_budget = convert(Matrix{Float64}, co2_budget)
+
+    # elec_budget::Matrix{Float64}
+    sh = xf["elec_budget"]
+    elec_budget = zeros(n_periods, n_subperiods)
+    for i in 1:n_periods
+        for j in 1:n_subperiods
+            row = j + n_subperiods * (i-1) 
+            elec_budget[i, j] = sh[row+1, 1]
+        end
+    end
+    elec_budget = convert(Matrix{Float64}, elec_budget)
+
     # GcI::Array{Float64, 3}
     sh = xf["GcI"]
     GcI = zeros(n_periods, n_subperiods, n_loc)
@@ -2332,6 +2353,7 @@ function read_params(fname)
               y0,
               x_ub, interest,
               sf_cap, sf_cash, sf_heat, sf_elec, sf_em, key_node,
+              initial_co2,
               n_rfu, n_nfu, 
               c0,
               e_C,
@@ -2425,6 +2447,7 @@ function read_params(fname)
               r_loan0, 
               discount, demand,
               co2_budget,
+              elec_budget,
               GcI,
               node_mat,
               skip_mb,

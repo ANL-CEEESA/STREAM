@@ -123,6 +123,8 @@ def all_bars(rf, fmt):
 
     plot_capf(rf, folder, colors, labr, labn, fmt, xaxislabel=x_label)
 
+    return folder
+
 # 80############################################################################
 def plot_emisions(rf, folder, fmt, xaxislabel=None):
     emf = rf +"/em.csv"
@@ -189,6 +191,11 @@ def plot_emisions(rf, folder, fmt, xaxislabel=None):
 def plot_capacities(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     cprf = rf + "/drcp.csv"
     cpnf = rf + "/dncp.csv"
+
+    # base capacity
+    rcpbf = rf + "/drcpb.csv"
+    nc0nf = rf + "/dnc0.csv"
+
     demf = rf + "/demand.csv"
     infof = rf + "/s_info.csv"
 
@@ -200,6 +207,7 @@ def plot_capacities(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
 
     dfd = pd.read_csv(demf)
     dfd = rescale_stre3am(dfd, infof, "cap")
+
 
     if xaxislabel == "year":
         xvals = dfr.iloc[:, 0]
@@ -229,7 +237,7 @@ def plot_capacities(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     a.plot(xvals, dfd.iloc[:, 0],
            label="Demand", lw=2, color="blue", ls="--", marker="*")
 
-    a.set_title("Capacity/Demand")
+    a.set_title("Capacity(Active)/Demand")
 
     xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
     a.set_xlabel(xlabel)
@@ -241,12 +249,67 @@ def plot_capacities(rf, folder, colors, labr, labn, fmt, xaxislabel=None):
     a.xaxis.set_major_formatter("{x:.0f}")
     a.set_xticks(xvals)
 
-    f.savefig(folder + f"demand-.{fmt}", dpi=300, format=f"{fmt}")
+    f.savefig(folder + f"demand-active_c.{fmt}", dpi=300, format=f"{fmt}")
 
     # save the legend
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
-    export_legend(legend_object, folder + "legend_cap", fmt)
+    export_legend(legend_object, folder + "legend_cap-active", fmt)
+
+    # installed capacity plot!
+    dfr0 = pd.read_csv(rcpbf)
+    dfr0 = rescale_stre3am(dfr0, infof, "cap")
+
+    dfn0 = pd.read_csv(nc0nf)
+    dfn0 = rescale_stre3am(dfn0, infof, "cap")
+
+    if xaxislabel == "year":
+        xvals = dfr0.iloc[:, 0]
+        w = (dfr0.iloc[1, 0] - dfr0.iloc[0, 0]) * 0.8
+    else:
+        xvals = np.arange(1, dfr0.shape[0]+1)
+        w = 0.8
+
+    f, a = plt.subplots(dpi=300)
+    plt.ticklabel_format(axis="y", style="sci", scilimits=(0, 0))
+
+    b = pd.DataFrame([0.0 for i in range(dfr0.shape[0])])
+    for i in range(1, dfr0.shape[1]):
+        a.bar(xvals, dfr0.iloc[:, i],
+              width=w, bottom=b.iloc[:, 0], label=labr[i-1],
+              align="edge", edgecolor="k", lw=1.5, color=colors[i-1])
+        b.iloc[:, 0] += dfr0.iloc[:, i]
+    # This neees to start at 2!!
+    for i in range(2, dfn0.shape[1]):
+        a.bar(xvals, dfn0.iloc[:, i],
+              width=w, bottom=b.iloc[:, 0], label=labn[i-1],
+              align="edge", edgecolor="k", lw=1.5, color=colors[i-1],
+              hatch="//")
+        b.iloc[:, 0] += dfn0.iloc[:, i]
+
+    ymax = b.max().max()
+    a.plot(xvals, dfd.iloc[:, 0],
+           label="Demand", lw=2, color="blue", ls="--", marker="*")
+
+    a.set_title("Capacity(Installed)/Demand")
+
+    xlabel = xaxislabel if isinstance(xaxislabel, str) else "Period"
+    a.set_xlabel(xlabel)
+
+    a.set_ylabel("tonne/yr")
+    a.set_ylim(top=ymax*1.01)
+
+    # tick labels
+    a.xaxis.set_major_formatter("{x:.0f}")
+    a.set_xticks(xvals)
+
+    f.savefig(folder + f"demand-installed.{fmt}", dpi=300, format=f"{fmt}")
+
+    # save the legend
+    a.legend(bbox_to_anchor=(1.0, 1.0))
+    legend_object = a.get_legend()
+    export_legend(legend_object, folder + "legend_cap-installed", fmt)
+    plt.close(f)
 
 
 # 80############################################################################
@@ -1028,6 +1091,7 @@ def plot_legend(rf, folder, colors, labr, labn, fmt):
     a.legend(bbox_to_anchor=(1.0, 1.0))
     legend_object = a.get_legend()
     export_legend(legend_object, folder + "dem_labl", fmt)
+    plt.close(f)
 
 
 def plot_capf(rf, folder, colors, labr, labn, fmt, xaxislabel=None):

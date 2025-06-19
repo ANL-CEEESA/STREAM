@@ -202,6 +202,7 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
     kn = p.key_node
 
     #dyr = DataFrame("yr"=>yr)
+    # this has location resolution
     drcp_d = DataFrame("yr"=>yr)
     drcp_d_act = DataFrame("yr"=>yr)
     
@@ -237,13 +238,17 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
     CSV.write(fname*"/"*"drcp_d.csv", drcp_d)
     CSV.write(fname*"/"*"drcp_d_act.csv", drcp_d_act)
     
+    # only for the key node
     drcp = DataFrame("yr"=>yr)
+    # installed capacity
+    drcpb = DataFrame("yr"=>yr)
     drep1 = DataFrame("yr"=>yr)
     dru = DataFrame("yr"=>yr)
 
     for k in s.Kr
         # accumulated by tech
         rcp_acc = zeros(length(s.P)*length(s.P2))
+        rcpb_acc = zeros(length(s.P)*length(s.P2))
         rep1_acc = zeros(length(s.P)*length(s.P2))
         ru_acc = zeros(length(s.P)*length(s.P2))
         for l in s.L
@@ -253,6 +258,8 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
                         row = j + length(s.P2) * (i-1)
                         yo = value(m[:y_o][i, j, l])
                         rcp_acc[row] += value(m[:r_cp_d_][i, j, l, k, kn]) * yo
+                        # r_cpb_d_
+                        rcpb_acc[row] += value(m[:r_cpb_d_][i, j, l, k]) * yo
                         rep1_acc[row] += value(m[:r_ep1ge_d_][i, j, l, k]) * yo
                         ru_acc[row] += sum(value(m[:r_u_d_][i, j, l, k, n])
                                            for n in s.Nd if p.nd_en_fltr[n]) * yo
@@ -263,11 +270,13 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
             end
         end
         drcp[:, "k_$(k)"] = rcp_acc
+        drcpb[:, "k_$(k)"] = rcpb_acc
         drep1[:, "k_$(k)"] = rep1_acc
         dru[:, "k_$(k)"] = ru_acc
     end
 
     CSV.write(fname*"/"*"drcp.csv", drcp)
+    CSV.write(fname*"/"*"drcpb.csv", drcpb)
     CSV.write(fname*"/"*"drep1.csv", drep1)
     CSV.write(fname*"/"*"dru.csv", dru)
 
@@ -305,11 +314,15 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
     CSV.write(fname*"/"*"dncp_d.csv", dncp_d)
     
     dncp = DataFrame("yr"=>yr)
+    # installed capacity
+    dnc0 = DataFrame("yr"=>yr) # n_c0_d_
+
     dnep1 = DataFrame("yr"=>yr)
     dnu = DataFrame("yr"=>yr)
     # accumulated by technology
     for k in s.Kn
         ncp_acc = zeros(length(s.P)*length(s.P2))
+        ncp0_acc = zeros(length(s.P)*length(s.P2))
         nep1_acc = zeros(length(s.P)*length(s.P2))
         nu_acc = zeros(length(s.P)*length(s.P2))
         for l in s.L
@@ -318,6 +331,7 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
                     for j in s.P2
                         row = j + length(s.P2) * (i-1)
                         ncp_acc[row] += value(m[:n_cp_d_][i, j, l, k, kn])
+                        ncp0_acc[row] += value(m[:n_c0_d_][i, j, l, k])
                         nep1_acc[row] += value(m[:n_ep1ge_d_][i, j, l, k])
                         nu_acc[row] += sum(value(m[:n_u_d_][i, j, l, k, n]) for n in s.Nd if p.nd_en_fltr[n])
                     end
@@ -326,6 +340,7 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
             #    continue
             end
             dncp[:, "k_$(k)"] = ncp_acc
+            dnc0[:, "k_$(k)"] = ncp0_acc
             dnep1[:, "k_$(k)"] = nep1_acc
             dnu[:, "k_$(k)"] = nu_acc
             # ncp_acc .= 0.0
@@ -334,6 +349,7 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
         end
     end
     CSV.write(fname*"/"*"dncp.csv", dncp)
+    CSV.write(fname*"/"*"dnc0.csv", dnc0)
     CSV.write(fname*"/"*"dnep1.csv", dnep1)
     CSV.write(fname*"/"*"dnu.csv", dnu)
 
@@ -1031,8 +1047,13 @@ function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     @info "output folder : $(folder)"
     mkdir(folder)
     
-    open("most_recent_run.txt", "w") do file
+    ofv = objective_value(m)/p.sf_cash
+    tv = terminalValue(m, p, s)/p.sf_cash
+
+    co2 = co2Total(m, p, s) # this is already is scaled
+    open("most_recent_run.txt", "a") do file
         write(file, folder)
+        write(file, "\t$(ofv)\t$(tv)\t$(co2)\n")
     end
 
     dr = write_rcp(m, p, s, folder)

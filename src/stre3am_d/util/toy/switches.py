@@ -359,9 +359,12 @@ def all_switches(f0, frmt):
     yret = np.zeros(yo.shape)
 
     for row in range(yo.shape[0]):
-        for col in range(1, yo.shape[1]):
-            if yo[row, col] - yo[row, col-1] < 0:
-                yret[row, col] = 1.0
+        if yo[row, 0] < 1:  # first one is retired
+            yred[row, col] = 1
+        else:
+            for col in range(1, yo.shape[1]):
+                if yo[row, col] - yo[row, col-1] < 0:
+                    yret[row, col] = 1.0
 
 
 
@@ -417,9 +420,12 @@ def all_switches(f0, frmt):
     yee = np.zeros(ye.shape)
 
     for row in range(ye.shape[0]):
-        for col in range(1, ye.shape[1]):
-            if ye[row, col] - ye[row, col-1] > 0:
-                yee[row, col] = 1.0
+        if ye[row, 0] > 0:
+            yee[row, 0] = 1
+        else:
+            for col in range(1, ye.shape[1]):
+                if ye[row, col] - ye[row, col-1] > 0:
+                    yee[row, col] = 1.0
 
 
     f, a = plt.subplots()#figsize=(5, 25))
@@ -476,3 +482,4 @@ def all_switches(f0, frmt):
     plot_legend(folder, colors, labr, frmt)
 
     ###
+    return folder
