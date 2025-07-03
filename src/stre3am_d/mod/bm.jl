@@ -3197,16 +3197,16 @@ function attachLocationBlock(m::Model, p::params, s::sets)
     @constraint(m, ag_co2_l_link_i_,
                 # existing
                 sum(
-                    (-sum(o_ep1ge[i, j, l] for l in L)
-                     -sum(o_ups_e_mt_in[i, j, l] for l in L)
-                     -sum(n_ep1ge[i, j, l] for l in L)
-                     -sum(n_ups_e_mt_in[i, j, l] for l in L)
-                    )*p.yr_subperiod 
-                    for j in P2 for i in P)
+                    (sum(o_ep1ge[i, j, l] for l in L)
+                     + sum(o_ups_e_mt_in[i, j, l] for l in L)
+                     + sum(n_ep1ge[i, j, l] for l in L)
+                     + sum(n_ups_e_mt_in[i, j, l] for l in L)
+                    ) 
+                    for j in P2 for i in P)*p.yr_subperiod
                 # grid associated emissions
                 #- sum(p.GcI[i,j,l]*0.29329722222222*
                 #      (o_u[i, j, l] + n_u[i, j, l]) for l in L)
-                >= -p.co2_budget[1, 1]
+                <= p.co2_budget[1, 1]
                )
 
     new_coal_fac = 0.7
@@ -3269,9 +3269,11 @@ function min_ep1ge!(m::JuMP.Model, p::params, s::sets)
     o_ep1ge = m[:o_ep1ge]
     n_ep1ge = m[:n_ep1ge]
 
+    o_ups_e_mt_in = m[:o_ups_e_mt_in]
+    n_ups_e_mt_in = m[:n_ups_e_mt_in]
 
     @objective(m, Min,
-               sum(o_ep1ge) + sum(n_ep1ge)
+               (sum(o_ep1ge) + sum(n_ep1ge) + sum(o_ups_e_mt_in) + sum(n_ups_e_mt_in))*p.yr_subperiod
               )
 
 end
@@ -3487,7 +3489,8 @@ end
 
 
 """
-    vintage_terms!(m::JuMP.Model, p::params, s::sets])
+    vintage_terms!(m::JuMP.Model, p::params, s::sets, 
+    init_vintage::Vector{Int64}, loan0::Vector{Float64})
 
 Associate a vintage by proxy of cost. 
 This is associated with the cost of financing the latest plant upgrade before
@@ -3495,7 +3498,7 @@ the time horizon.
 
 """
 function vintage_terms!(m::JuMP.Model, p::params, s::sets, 
-        init_vintage::Vector{Int64})
+        init_vintage::Vector{Int64}, loan0::Vector{Float64})
 
 
     P = s.P
@@ -3626,7 +3629,8 @@ function vintage_terms!(m::JuMP.Model, p::params, s::sets,
     # for now we assume that the loan and payment amounts are taken from the
     # r_Loanfact for the efficiency retrofit aka k = 1
     # note the 5 here
-    loan0 = p.r_loanFact[1 ,1 ,: ,2].*5.0 .* p.c0
+    #loan0 = p.r_loanFact[1 ,1 ,: ,2].*5.0 .* p.c0
+    
     pay0_yr = loan0./loan_base_year_amnt
    
     # simply assume the remaining loan is loan0 - vintage * pay0
@@ -3792,7 +3796,7 @@ function terminalValue(m::JuMP.Model, p::params, s::sets, tCoeff=1e-06)
     n_loan = value.(m[:n_loan])
     o_loan_last = value.(m[:o_loan_last])
 
-    loan_window = gen_loan_window(p, s)
+    loan_window, _ = gen_lp_window(p, s)
 
     terminal_value = tCoeff*sum(p.discount[n_periods,n_subperiods]* o_loan_last[n_periods, l, sT] for l in L)
     +
@@ -3822,14 +3826,96 @@ function co2Total(m::JuMP.Model, p::params, s::sets)
                    + sum(o_ups_e_mt_in[i, j, l] for l in L)
                    + sum(n_ep1ge[i, j, l] for l in L)
                    + sum(n_ups_e_mt_in[i, j, l] for l in L)
-                   *p.yr_subperiod 
-                   for j in P2 for i in P)
+                   for j in P2 for i in P) *p.yr_subperiod 
     @info "co2total unscaled $(co2total)"
     return co2total/p.sf_em
 end
 
+function npvValue(m::JuMP.Model, p::params, s::sets)
+    P2 = s.P2
+    P = s.P
+    L = s.L
+    n_periods = p.n_periods
+    n_subperiods = p.n_subperiods
+    # True/False
+    
+    sT = 1 # p.sTru
+    sF = sT + 1 # p.sFal  # offline
 
-function gen_loan_window(p::params, s::sets)
+    o_pay = value.(m[:o_pay])
+    o_cfonm = value.(m[:o_cfonm])
+    o_cvonm =value.(m[:o_cvonm])
+    n_pay = value.(m[:n_pay])
+    n_cfonm = value.(m[:n_cfonm])
+    n_cvonm = value.(m[:n_cvonm])
+    o_loan_last = value.(m[:o_loan_last])
+
+    n_ladd = value.(m[:n_ladd])
+    n_loan = value.(m[:n_loan])
+    t_ret_cost = value.(m[:t_ret_cost])  # 15)
+    #n_loan_p = m[:n_loan_p]
+
+    o_u_cost = value.(m[:o_u_cost])
+    n_u_cost = value.(m[:n_u_cost])
+    
+    o_ehf_cost = value.(m[:o_ehf_cost])
+    n_ehf_cost = value.(m[:n_ehf_cost])
+    o_ep1gcs_cost = value.(m[:o_ep1gcs_cost])
+    n_ep1gcs_cost = value.(m[:n_ep1gcs_cost])
+
+    o_x_in_cost = value.(m[:o_x_in_cost])
+    n_x_in_cost = value.(m[:n_x_in_cost])
+
+    yr_subperiod = p.yr_subperiod
+    n_subperiods = p.n_subperiods
+    n_periods = p.n_periods
+    loan_window, pay_window = gen_lp_window(p, s)
+
+
+    npv = (sum(sum(sum(p.discount[i, j] * o_pay[i, j, l] 
+                 for l in L) for j in P2) for i in P)
+     # 2 o&m
+     + sum(sum(sum(p.discount[i, j] * o_cfonm[i, j, l] 
+                   for l in L) for j in P2) for i in P)
+     + sum(sum(sum(p.discount[i, j] * o_cvonm[i, j, l] 
+                   for l in L) for j in P2) for i in P)
+     # 3 loan new
+     + sum(sum(sum(p.discount[i, j]*sum(n_pay[i0, j0, l] for i0 in P for j0 in P2 if in((i,j),pay_window[i0, j0])) for l in L) for j in P2) for i in P)
+     # 4 o&m new
+     + sum(sum(sum(p.discount[i, j] * n_cfonm[i, j, l] 
+                   for l in L) for j in P2) for i in P)
+     + sum(sum(sum(p.discount[i, j] * n_cvonm[i, j, l] 
+                   for l in L) for j in P2) for i in P)
+     # 5 retirement
+     + sum(sum(sum(p.discount[i, j]*t_ret_cost[i, j, l] 
+                   for l in L) for j in P2) for i in P)
+     # 8 elec
+     + sum(p.discount[i, j] * o_u_cost[i, j, l] 
+           for l in L for j in P2 for i in P)
+     # 9 elec new
+     + sum(p.discount[i, j] * n_u_cost[i, j, l]
+           for l in L for j in P2 for i in P)
+     # 10 fuel
+     + sum(p.discount[i, j] * o_ehf_cost[i, j, l]
+           for l in L for j in P2 for i in P)
+     # 11 fuel new
+     + sum(p.discount[i, j] * n_ehf_cost[i, j, l]
+           for l in L for j in P2 for i in P)
+     #
+     + sum(p.discount[i, j] * o_ep1gcs_cost[i, j, l] 
+           for l in L for j in P2 for i in P)
+     + sum(p.discount[i, j] * n_ep1gcs_cost[i, j, l] 
+           for l in L for j in P2 for i in P)
+     + sum(p.discount[i, j] * o_x_in_cost[i, j, l]
+           for l in L for j in P2 for i in P)
+     + sum(p.discount[i, j] * n_x_in_cost[i, j, l]
+           for l in L for j in P2 for i in P)
+    )
+    return npv/p.sf_cash
+end
+
+
+function gen_lp_window(p::params, s::sets)
     yr_subperiod = p.yr_subperiod
     n_subperiods = p.n_subperiods
     n_periods = p.n_periods
@@ -3844,6 +3930,7 @@ function gen_loan_window(p::params, s::sets)
 
 
     loan_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
+    pay_window = Dict((i,j)=>[] for i in s.P for j in s.P2)
     for i in s.P
         for j in s.P2
             loan_list = []
@@ -3860,7 +3947,32 @@ function gen_loan_window(p::params, s::sets)
             loan_window[i, j] = loan_list
         end
     end
-    return loan_window
+
+    for i in s.P
+        for j in s.P2
+            global paym_list = []
+            k = 0
+            for j1 in j:n_subperiods
+                if k == loan_subperiods
+                    break
+                end
+                push!(paym_list, (i, j1))
+                k += 1
+            end
+            for i1 in (i+1):n_periods
+                for j1 in 1:n_subperiods
+                    if k == loan_subperiods
+                        break
+                    end
+                    push!(paym_list, (i1, j1))
+                    k += 1
+                end
+            end
+            pay_window[i, j] = paym_list
+        end
+    end
+
+    return loan_window, pay_window
 end
 
 function gen_pay_window(p::params, s::sets)

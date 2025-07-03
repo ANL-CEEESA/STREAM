@@ -205,9 +205,13 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
     # this has location resolution
     drcp_d = DataFrame("yr"=>yr)
     drcp_d_act = DataFrame("yr"=>yr)
+
+    # installed capacity by loc-tech
+    drcpb_d = DataFrame("yr"=>yr)
     
     rcp = zeros(length(s.P)*length(s.P2))
     rcp_act = zeros(length(s.P)*length(s.P2))
+    rcpb = zeros(length(s.P)*length(s.P2))
 
     yo = value.(m[:y_o])
     yo = Array(yo)
@@ -221,22 +225,34 @@ function write_rcp(m::JuMP.Model, p::params, s::sets, fname::String)
                     for j in s.P2
                         rcp[t] = value(m[:r_cp_d_][i, j, l, k, kn])
                         rcp_act[t] = rcp[t]*yo[i, j, l] 
+                        # r_cpb_d_
+                        rcpb[t] = value(m[:r_cpb_d_][i, j, l, k]) * yo[i, j, l]
                         t += 1
                     end
                 end
-                drcp_d[:, "k_$(k)_l_$(l)"] = rcp
-                drcp_d_act[:, "k_$(k)_l_$(l)"] = rcp_act
-                rcp .= 0.0
-                rcp_act .= 0.0
-            else
-                drcp_d[:, "k_$(k)_l_$(l)"] = rcp
-                drcp_d_act[:, "k_$(k)_l_$(l)"] = rcp_act
+            #     drcp_d[:, "k_$(k)_l_$(l)"] = rcp
+            #     drcp_d_act[:, "k_$(k)_l_$(l)"] = rcp_act
+            #     drcpb_d[:, "k_$(k)_l_$(l)"] = rcpb
+            #     rcp .= 0.0
+            #     rcp_act .= 0.0
+            #     rcpb .= 0.0
+            # else
+            #     drcp_d[:, "k_$(k)_l_$(l)"] = rcp
+            #     drcp_d_act[:, "k_$(k)_l_$(l)"] = rcp_act
+            #     drcpb_d[:, "k_$(k)_l_$(l)"] = rcpb
             end
+            drcp_d[:, "k_$(k)_l_$(l)"] = rcp
+            drcp_d_act[:, "k_$(k)_l_$(l)"] = rcp_act
+            drcpb_d[:, "k_$(k)_l_$(l)"] = rcpb
+            rcp .= 0.0
+            rcp_act .= 0.0
+            rcpb .= 0.0
         end
     end
     #
     CSV.write(fname*"/"*"drcp_d.csv", drcp_d)
     CSV.write(fname*"/"*"drcp_d_act.csv", drcp_d_act)
+    CSV.write(fname*"/"*"drcpb_d.csv", drcpb_d)
     
     # only for the key node
     drcp = DataFrame("yr"=>yr)
@@ -293,7 +309,10 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
     kn = p.key_node
 
     dncp_d = DataFrame("yr"=>yr)
+    dnc0_d = DataFrame("yr"=>yr)
+
     ncp = zeros(length(s.P)*length(s.P2))
+    nc0 = zeros(length(s.P)*length(s.P2))
     for l in s.L
         for k in s.Kn
             if p.n_filter[l, k]
@@ -301,17 +320,28 @@ function write_ncp(m::JuMP.Model, p::params, s::sets, fname::String)
                 for i in s.P
                     for j in s.P2
                         ncp[t] = value(m[:n_cp_d_][i, j, l, k, kn])
+                        nc0[t] = value(m[:n_c0_d_][i, j, l, k])
                         t += 1
                     end
                 end
-                dncp_d[:, "k_$(k)_l_$(l)"] = ncp
-                ncp .= 0.0
-            else
-                dncp_d[:, "k_$(k)_l_$(l)"] = ncp
+            #    dncp_d[:, "k_$(k)_l_$(l)"] = ncp
+            #    ncp .= 0.0
+            #else
+            #    dncp_d[:, "k_$(k)_l_$(l)"] = ncp
             end
+            dncp_d[:, "k_$(k)_l_$(l)"] = ncp
+            dnc0_d[:, "k_$(k)_l_$(l)"] = nc0
+            ncp .= 0.0
+            nc0 .= 0.0
         end
     end
+
+    for l in s.L
+        dnc0_d[:, "k_1_l_$(l)"] = zeros(length(s.P)*length(s.P2))
+    end
+
     CSV.write(fname*"/"*"dncp_d.csv", dncp_d)
+    CSV.write(fname*"/"*"dnc0_d.csv", dnc0_d)
     
     dncp = DataFrame("yr"=>yr)
     # installed capacity
@@ -819,6 +849,9 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
     r_fuel_em = r_ep0 .- r_cpe  # fuel
 
     r_ep1 = value.(m[:r_ep1ge])
+    # o_ups_e_mt_in[i, j, l]
+    o_ups_e_mt_in = value.(m[:o_ups_e_mt_in])
+
     r_uem = zeros(length(s.P)*length(s.P2), length(s.L))
     for i in s.P
         for j in s.P2
@@ -851,6 +884,9 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
     n_ep1 = value.(m[:n_ep1ge])
     #n_uem = value.(m[:n_u]).*p.GcI*0.29329722222222
     n_uem = zeros(length(s.P)*length(s.P2), length(s.L))
+
+    n_ups_e_mt_in = value.(m[:n_ups_e_mt_in])
+
     for i in s.P
         for j in s.P2
             row = j + length(s.P2)*(i-1)
@@ -869,11 +905,13 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
     drfue = DataFrame("yr" => yr)
     drep1 = DataFrame("yr" => yr)
     druem = DataFrame("yr" => yr)
+    do_ups_e_mt_in = DataFrame("yr" => yr)
     #
     dncpe = DataFrame("yr" => yr)
     dnfue = DataFrame("yr" => yr)
     dnep1 = DataFrame("yr" => yr)
     dnuem = DataFrame("yr" => yr)
+    dn_ups_e_mt_in = DataFrame("yr" => yr)
     #
     ndemfltr = p.nd_em_fltr
     for l in s.L
@@ -881,43 +919,51 @@ function write_emission_plant(m::JuMP.Model, p::params, s::sets,fname::String)
         rfue = r_fuel_em[:, :, l].*yo[:, :, l]
         rep1 = r_ep1[:, :, l].*yo[:, :, l]
         #ruem = r_uem[:, l].*yo[:, :, l]
+        oupsemtin = o_ups_e_mt_in[:, :, l]
 
         rcpe = reshape(rcpe', length(rcpe))
         rfue = reshape(rfue', length(rfue))
         rep1 = reshape(rep1', length(rep1))
         #ruem = reshape(ruem', length(ruem))
+        oupsemtin = reshape(oupsemtin', length(oupsemtin))
 
         drcpe[:, "l_$(l)"] = rcpe
         drfue[:, "l_$(l)"] = rfue
         drep1[:, "l_$(l)"] = rep1
         druem[:, "l_$(l)"] = r_uem[:, l]
+        do_ups_e_mt_in[:, "l_$(l)"] = oupsemtin
         
         #
         ncpe = n_cpe[:, :, l]
         nfue = n_fuel_em[:, :, l]
         nep1 = n_ep1[:, :, l]
         #nuem = n_uem[:, :, l]
+        nupsemtin = n_ups_e_mt_in[:, :, l]
 
         ncpe = reshape(ncpe', length(ncpe))
         nfue = reshape(nfue', length(nfue))
         nep1 = reshape(nep1', length(nep1))
         #nuem = reshape(nuem', length(nuem))
+        nupsemtin = reshape(nupsemtin', length(nupsemtin))
 
         dncpe[:, "l_$(l)"] = ncpe
         dnfue[:, "l_$(l)"] = nfue
         dnep1[:, "l_$(l)"] = nep1
         dnuem[:, "l_$(l)"] = n_uem[:, l]
+        dn_ups_e_mt_in[:, "l_$(l)"] = nupsemtin
     end
 
     CSV.write(fname*"/"*"drcpe.csv", drcpe)
     CSV.write(fname*"/"*"drfue.csv", drfue)
     CSV.write(fname*"/"*"drep1_.csv", drep1)
     CSV.write(fname*"/"*"druem.csv", druem)
+    CSV.write(fname*"/"*"do_ups_e_mt_in.csv", do_ups_e_mt_in)
 
     CSV.write(fname*"/"*"dncpe.csv", dncpe)
     CSV.write(fname*"/"*"dnfue.csv", dnfue)
     CSV.write(fname*"/"*"dnep1_.csv", dnep1)
     CSV.write(fname*"/"*"dnuem.csv", dnuem)
+    CSV.write(fname*"/"*"dn_ups_e_mt_in.csv", dn_ups_e_mt_in)
     
 
     co2 = reshape(p.co2_budget', length(p.co2_budget))
@@ -1049,11 +1095,11 @@ function postprocess_d(m::JuMP.Model, p::params, s::sets, f0::String)
     
     ofv = objective_value(m)/p.sf_cash
     tv = terminalValue(m, p, s)/p.sf_cash
-
+    npv = npvValue(m, p, s)/p.sf_cash
     co2 = co2Total(m, p, s) # this is already is scaled
     open("most_recent_run.txt", "a") do file
         write(file, folder)
-        write(file, "\t$(ofv)\t$(tv)\t$(co2)\n")
+        write(file, "\t$(ofv)\t$(tv)\t$(npv)\t$(co2)\n")
     end
 
     dr = write_rcp(m, p, s, folder)
