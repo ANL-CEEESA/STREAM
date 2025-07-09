@@ -1,0 +1,209 @@
+# Copyright (C) 2023, UChicago Argonne, LLC
+# All Rights Reserved
+# Software Name: STRE3AM: Strategic Technology Roadmapping and Energy, 
+# Environmental, and Economic Analysis Model
+# By: Argonne National Laboratory
+# BSD-3 OPEN SOURCE LICENSE
+
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+
+# 1. Redistributions of source code must retain the above copyright notice, this
+# list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+# this list of conditions and the following disclaimer in the documentation
+# and/or other materials provided with the distribution.
+# 3. Neither the name of the copyright holder nor the names of its contributors
+# may be used to endorse or promote products derived from this software without
+# specific prior written permission.
+
+# ******************************************************************************
+# DISCLAIMER
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# ******************************************************************************
+
+# vim: expandtab colorcolumn=80 tw=80
+
+# written by @dthierry 2025
+# prototype.jl
+# notes: This is the case study for the software X paper. Be sure to check the
+# instructions at the README.md
+#
+#
+#80columns######################################################################
+
+
+using stre3am
+using JuMP
+using Gurobi
+
+
+function run_case_study(input_file)
+    pr = prJrnl(@__FILE__)
+    setJrnlTag!(pr, "_DEBUG")
+    jrnlst!(pr, jrnlMode(0))
+
+    # input file (make sure it was generated before.)
+    f = "./$(input_file).xlsx"
+    @info "Input file $(f)\n"
+    # internal data structure
+    p = read_params(f);
+    @info "Data has been loaded.\n"
+
+    # sets
+    s = sets(p)
+    @info "Sets have been created.\n"
+
+
+    # model
+    @info "Creating model.\n"
+    m = createBlockMod(s.P, s.L, p, s)
+
+    # linking constraints
+    attachPeriodBlock(m, p, s)
+    attachLocationBlock(m, p, s)
+
+    init_vintage = Vector{Int64}(undef, p.n_location)
+    init_vintage[1:5] = [40, 30, 20, 10, 5]
+
+    loan0 = p.n_loanFact[: ,2].*p.c0
+    vintage_terms!(m, p, s, init_vintage, loan0)
+
+    # terminal coefficient
+    termCoef = 1e-03
+
+    # objective function
+    attachFullObjectiveBlock(m, p, s, termCoef)
+    #min_ep1ge!(m, p, s)
+
+    set_optimizer(m, Gurobi.Optimizer)
+    set_attribute(m, "LogFile", pr.fname*"-$(input_file)"*".gurobi")
+
+    # (optional) load a discrete state (upper bound)
+    
+    if check_discrete_state_file()
+        load_discrete_state(m, p, s)
+    end
+    ##
+    ccs_supply_bound!(m, p, s)
+    electricity_supply_bound!(m, p, s)
+    #
+
+    # delete(m, m[:ag_co2_l_link_i_])
+    # unregister(m, :ag_co2_l_link_i_)
+    
+    # call solver
+    @info "Solve.\n"
+    optimize!(m)
+    # generate result files
+    fname = postprocess_d(m, p, s, f)
+
+    ofv = objective_value(m)
+    tv = terminalValue(m, p, s)
+    co2 = co2Total(m, p, s)
+
+    save_discrete_state(m, p, s)
+
+    #####
+
+    @info "BAU\n"
+    m_bau = createBlockMod(s.P, s.L, p, s)
+
+    # linking constraints
+    attachPeriodBlock(m_bau, p, s)
+    attachLocationBlock(m_bau, p, s)
+
+    init_vintage = Vector{Int64}(undef, p.n_location)
+    init_vintage[1:5] = [40, 30, 20, 10, 5]
+    #init_vintage[6:10] = rand(0:100, 5)
+    # use the cost of the incumbent 
+    loan0 = p.n_loanFact[: ,2].*p.c0
+
+    vintage_terms!(m_bau, p, s, init_vintage, loan0)
+
+    # terminal coefficient
+    termCoef = 1e-03
+
+    # objective function
+    attachFullObjectiveBlock(m_bau, p, s, termCoef)
+
+    # remove the co2 constraint
+    delete(m_bau, m_bau[:ag_co2_l_link_i_])
+    unregister(m_bau, :ag_co2_l_link_i_)
+
+    set_optimizer(m_bau, Gurobi.Optimizer)
+    set_attribute(m_bau, "LogFile", pr.fname*"$(input_file)"*"-bau.gurobi")
+    
+    load_discrete_state(m_bau, p, s)
+
+    ccs_supply_bound!(m_bau, p, s)
+    electricity_supply_bound!(m_bau, p, s)
+
+    # call solver
+    @info "Solve.\n"
+    optimize!(m_bau)
+    # generate result files
+    fname = postprocess_d(m_bau, p, s, f)
+
+    ofv_bau = objective_value(m_bau)
+    tv_bau = terminalValue(m_bau, p, s)
+    co2_bau = co2Total(m_bau, p, s)
+
+    println(input_file)
+    println("C_constr\tofv\t$(ofv)\ttv\t$(tv)\tco\t$(co2)\tn")
+    println("bau \tofv\t$(ofv_bau)\ttv\t$(tv_bau)\tco\t$(co2_bau)\tn")
+    abc = ofv - tv - ofv_bau + tv_bau
+    abc = abc/(co2_bau-co2)
+    println("abatement:\t$(abc)")
+    
+    return m
+end
+
+"""
+We only have access to a maximum amount of co2 capture and storage 
+"""
+function ccs_supply_bound!(m, p, s, level=0.9)
+    
+    o_ep1gce = m[:o_ep1gce]
+    o_ep1gcs = m[:o_ep1gcs]
+
+    n_ep1gce = m[:n_ep1gce]
+    n_ep1gcs = m[:n_ep1gcs]
+
+    # (1.0 - p.r_chi[l, k]) * r_ep0_d_[i, j, l, k]
+    #
+    @constraint(m, ccs_supply[i=s.P, j=s.P2],
+                (sum(o_ep1gce[i, j, l] + o_ep1gcs[i, j, l] for l in s.L) 
+                + sum(n_ep1gce[i, j, l] + n_ep1gcs[i, j, l] for l in s.L))
+                <= p.initial_co2 * level
+               )
+    # removed the yr per period
+end
+
+"""
+We only have access to a maximum amount of electricity
+"""
+function electricity_supply_bound!(m, p, s)
+    o_u = m[:o_u]  # 29
+    n_u = m[:n_u]  # 30
+    @constraint(m, elec_supply[i=s.P, j=s.P2],
+                sum(sum(o_u[i, j, l, n] for n in s.Nd if p.nd_en_fltr[n])
+                    + sum(n_u[i, j, l, n] for n in s.Nd if p.nd_en_fltr[n])
+                    for l in s.L)*p.yr_subperiod  # in one year
+                <= p.elec_budget[i, j]*p.yr_subperiod  # in year 0
+               )
+    # remove the yr_per_period
+end
+
+
+
+
