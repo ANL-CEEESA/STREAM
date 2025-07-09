@@ -65,12 +65,15 @@ def hex_to_rgb(value):
     lv = len(value)
     return tuple(int(value[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
-def plot_legend(folder, colors, labr, frmt):
+def plot_legend(folder, colors_r, colors_n, labr, labn, frmt):
     f, a = plt.subplots(dpi=300)
     for i in range(1, len(labr)):
         a.bar([0], [0],
               label=labr[i],
-              edgecolor="k", lw=1.5, color=colors[i])
+              edgecolor="k", lw=1.5, color=colors_r[i])
+        a.bar([0], [0],
+              label=labn[i],
+              color=colors_n[i])
     a.bar([0], [0],
           label="Retirement",
           edgecolor="k", lw=1.5, color=colormaps["Oranges"](999))
@@ -121,7 +124,7 @@ def all_switches(f0, frmt):
     dyn = pd.read_csv(dynf)
     dlrn = pd.read_csv(lrnf)
 
-    colors = [
+    colors_r = [
         "#ffffff",
         "#cec44b",
         "#b0d54b",
@@ -133,6 +136,17 @@ def all_switches(f0, frmt):
         "#6a5ee6",
     ]
 
+    colors_n = [
+        "#ffffff",
+        "#e7b24b",
+        "#ffebee",
+        "#DAEFB3",
+        "#68C5DB",
+        "#6adc75",
+        "#68b7a7",
+        "#6890ca",
+        "#6a5ee6",
+    ]
 
 
     rlf = f0 + "/retro_labels.csv"
@@ -150,8 +164,8 @@ def all_switches(f0, frmt):
     rfilter = pd.read_csv(rfilter_f)
     nfilter = pd.read_csv(nfilter_f)
 
-    rtpc = [hex_to_rgb(i) for i in colors]
-    ntpc = [hex_to_rgb(i) for i in colors]
+    rtpc = [hex_to_rgb(i) for i in colors_r]
+    ntpc = [hex_to_rgb(i) for i in colors_n]
 #
     nloc = dlrn.loc[0, "n_loc"]
     nper = dlrn.loc[0, "n_p"]
@@ -170,7 +184,6 @@ def all_switches(f0, frmt):
             if rfilter.iloc[l, k]:
                 c = f"k_{k+1}_l_{l+1}"
                 yr_l = dyr[c].to_numpy()
-
                 yo_l = dyo[f"l_{l+1}"].to_numpy()
                 yr_l = np.multiply(yr_l, yo_l)
             else:
@@ -248,22 +261,23 @@ def all_switches(f0, frmt):
     # generate the legend
     f, a = plt.subplots(dpi=300)
     for i in range(dlrn.loc[0, "n_rtft"]):
-        a.bar([1], [1], label=labr[i], color=colors[i])
+        a.bar([1], [1], label=labr[i], color=colors_r[i])
     l = a.legend(bbox_to_anchor=(1,1), loc="upper left")
     f.canvas.draw()
     bbox = l.get_window_extent().transformed(f.dpi_scale_trans.inverted())
     f.savefig(folder + f"legend_rf.{frmt}", bbox_inches=bbox, format=frmt)
 
-
+    print(nfilter)
     ly = []
     for k in range(dlrn.loc[0, "n_new"]):
         yn = dyn[f"k_{k+1}_l_1"]
         for l in range(1, dlrn.loc[0, "n_loc"]):
-            if rfilter.iloc[l, k]:
+            print(f"l={l}, k={k}, filter={nfilter.iloc[l,k]}")
+            if nfilter.iloc[l, k]:  # 06-30-2025 I had to correct this
                 c = f"k_{k+1}_l_{l+1}"
                 yn_l = dyn[c].to_numpy()
             else:
-                yr_l = np.zeros(dyn.shape[0])
+                yn_l = np.zeros(dyn.shape[0])
             yn = np.vstack((yn, yn_l))
 
         ly.append(yn)
@@ -339,7 +353,7 @@ def all_switches(f0, frmt):
     # generate the legend
     f, a = plt.subplots(dpi=300)
     for i in range(dlrn.loc[0, "n_new"]):
-        a.bar([1], [1], label=labn[i], color=colors[i])
+        a.bar([1], [1], label=labn[i], color=colors_n[i])
     l = a.legend(bbox_to_anchor=(1,1), loc="upper left")
     f.canvas.draw()
     bbox = l.get_window_extent().transformed(f.dpi_scale_trans.inverted())
@@ -359,9 +373,12 @@ def all_switches(f0, frmt):
     yret = np.zeros(yo.shape)
 
     for row in range(yo.shape[0]):
-        for col in range(1, yo.shape[1]):
-            if yo[row, col] - yo[row, col-1] < 0:
-                yret[row, col] = 1.0
+        if yo[row, 0] < 1:  # first one is retired
+            yred[row, col] = 1
+        else:
+            for col in range(1, yo.shape[1]):
+                if yo[row, col] - yo[row, col-1] < 0:
+                    yret[row, col] = 1.0
 
 
 
@@ -417,9 +434,12 @@ def all_switches(f0, frmt):
     yee = np.zeros(ye.shape)
 
     for row in range(ye.shape[0]):
-        for col in range(1, ye.shape[1]):
-            if ye[row, col] - ye[row, col-1] > 0:
-                yee[row, col] = 1.0
+        if ye[row, 0] > 0:
+            yee[row, 0] = 1
+        else:
+            for col in range(1, ye.shape[1]):
+                if ye[row, col] - ye[row, col-1] > 0:
+                    yee[row, col] = 1.0
 
 
     f, a = plt.subplots()#figsize=(5, 25))
@@ -473,6 +493,7 @@ def all_switches(f0, frmt):
 
     drl = pd.read_csv(rlf)
     labr = drl.iloc[:,0].to_list()
-    plot_legend(folder, colors, labr, frmt)
+    plot_legend(folder, colors_r, colors_n, labr, labn, frmt)
 
     ###
+    return folder

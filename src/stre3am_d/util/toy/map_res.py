@@ -45,6 +45,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import datetime
+
 
 __author__ = "David Thierry @dthierry"
 
@@ -87,8 +89,11 @@ def export_legend(legend, filename, fmt):
 
 
 def cap_matrix(rf):
-    cprf = rf + "/drcp_d_act.csv"
-    cpnf = rf + "/dncp_d.csv"
+    #cprf = rf + "/drcp_d_act.csv"
+    #cpnf = rf + "/dncp_d.csv"
+
+    cprf = rf + "/drcpb_d.csv"
+    cpnf = rf + "/dnc0_d.csv"
 
     infof = rf + "/lrn_info.csv"
     s_info = rf + "/s_info.csv"
@@ -105,10 +110,12 @@ def cap_matrix(rf):
     dfn = rescale_stre3am(dfn, s_info, "cap")
     #
     n_loc = dinfo.loc[0, "n_loc"]
-    n_tech = dinfo.loc[0, "n_rtft"]
+    n_rf = dinfo.loc[0, "n_rtft"]
+    n_nw = dinfo.loc[0, "n_new"]
     n_tp = dfr.shape[0]
     #
-    cap = np.zeros([n_loc, n_tech, n_tp])
+    cap_r = np.zeros([n_loc, n_rf, n_tp])
+    cap_n = np.zeros([n_loc, n_nw, n_tp])
     #
     # navigate by col
     for col in range(1, dfr.shape[1]):
@@ -117,15 +124,15 @@ def cap_matrix(rf):
         k = int(name[1])-1
         l = int(name[3])-1
         for row in range(y.shape[0]):
-            cap[l, k, row] += y.iloc[row]
+            cap_r[l, k, row] += y.iloc[row]
     for col in range(1, dfn.shape[1]):
         y = dfn.iloc[:, col]
         name = y.name.split("_")
         k = int(name[1])-1
         l = int(name[3])-1
         for row in range(y.shape[0]):
-            cap[l, k, row] += y.iloc[row]
-    return cap, (n_tp, n_loc, n_tech), dfr.iloc[:, 0]
+            cap_n[l, k, row] += y.iloc[row]
+    return cap_r, cap_n, (n_tp, n_loc, n_rf, n_nw), dfr.iloc[:, 0]
 
 
 def gen_map(res_folder, sample_folder, map_folder, fmt):
@@ -196,10 +203,23 @@ def gen_map(res_folder, sample_folder, map_folder, fmt):
         "#6a5ee6",
     ]
 
+    colors_n = [
+        "#ffffff",
+        "#e7b24b",
+        "#ffebee",
+        "#DAEFB3",
+        "#68C5DB",
+        "#6adc75",
+        "#68b7a7",
+        "#6890ca",
+        "#6a5ee6",
+    ]
+
+
     # maps
     rf = res_folder  # reference folder
     # call the matrix function
-    cap, (n_tp, n_loc, n_tech), labels = cap_matrix(rf)
+    cap_r, cap_n, (n_tp, n_loc, n_rf, n_nw), labels = cap_matrix(rf)
     labels = ["subperiod {}".format(i) for i in range(1, n_tp+1)]
     # main plot
     fig, ax = plt.subplots(nrows, n_tp//nrows, sharex=True, sharey=True, dpi=600,
@@ -209,6 +229,7 @@ def gen_map(res_folder, sample_folder, map_folder, fmt):
     xoffs = np.random.uniform(-1e-01, 1e-01, size=n_loc) + 1e0
     smin = 0
     smax = 0
+
     for i in range(n_tp):
         axx = ax.flat[i]
         d.plot(ax=axx, lw=0.1, facecolor='none', edgecolor=edgecolor, zorder=1e6)
@@ -223,9 +244,7 @@ def gen_map(res_folder, sample_folder, map_folder, fmt):
         for plant in range(n_loc):
             loc_idx = locations[plant]
             x, y = xc.iloc[loc_idx], yc.iloc[loc_idx]
-            values = cap[plant, :, i]
-
-
+            values = cap_r[plant, :, i]
             #s = sum(values)
             s = sum(values)
             smin = smin if s > smin else s
@@ -233,29 +252,54 @@ def gen_map(res_folder, sample_folder, map_folder, fmt):
             # s = sum(values) * 1e-02/2
             facecolor=piecolors
             if s <= 1e-08:
-                wedges = a0.pie([1], colors="red")
+                #wedges = a0.pie([1], colors="red")
                 s = 5
                 facecolor=["red"]
                 axx.scatter([x], [y],
-                            s=1.0,
+                            s=5.0,
                             facecolor="red",
                             edgecolor='black',
                             linewidth=0.1,
+                            marker=",",
                             alpha=1.0
                             )
             else:
                 values = [val if val > 0 else 0 for val in values]
-                wedges = a0.pie(values, colors=piecolors)
-            n_wedges = len(wedges[0])
+                #wedges = a0.pie(values, colors=piecolors)
+            #n_wedges = len(wedges[0])
             for j in range(len(values)):
-
-
                 sc = axx.scatter([x], [y],
                                 s=values[j],
                                 facecolor=piecolors[j],
                                 edgecolor='black',
                                 linewidth=0.1,
                                 alpha=0.5
+                                )
+        for plant in range(n_loc):
+            loc_idx = locations[plant]
+            x, y = xc.iloc[loc_idx], yc.iloc[loc_idx]
+            values = cap_n[plant, :, i]
+            #s = sum(values)
+            s = sum(values)
+            smin = smin if s > smin else s
+            smax = smax if s < smax else s
+            # s = sum(values) * 1e-02/2
+            facecolor=piecolors
+            if s <= 1e-08:
+                #wedges = a0.pie([1], colors="red")
+                s = 5
+            else:
+                values = [val if val > 0 else 0 for val in values]
+                #wedges = a0.pie(values, colors=piecolors)
+            #n_wedges = len(wedges[0])
+            for j in range(len(values)):
+                sc = axx.scatter([x], [y],
+                                s=values[j],
+                                facecolor=colors_n[j],
+                                edgecolor='black',
+                                hatch="///",
+                                linewidth=0.2,
+                                #alpha=0.5
                                 )
 
 
@@ -270,6 +314,9 @@ def gen_map(res_folder, sample_folder, map_folder, fmt):
     legend2 = axx.legend(*sc.legend_elements(**kw),
                         loc="lower right", title="tonne/yr")
                          #bbox_to_anchor=(1,1))
+    ts = datetime.datetime.now().timestamp()
+    fig.savefig(f"map_{ts}.{fmt}", format=f"{fmt}")
+    print(f"Generated map_{ts}.{fmt}\n")
+    return f"map_{ts}.{fmt}"
 
-    fig.savefig(f"map_br.{fmt}", format=f"{fmt}")
-    print(f"Generated map_br.{fmt}\n")
+
