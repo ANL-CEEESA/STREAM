@@ -133,6 +133,7 @@ An example case study is constructed in the [prototype page](prototype_case.md).
 
 - David Thierry, Argonne National Laboratory, *ESIA division*
 - Sarang Supekar, Argonne National Laboratory, *ESIA division*
+- Jeffrey Bennett, Argonne National Laboratory, *ESIA division*
 
 ## License
 
