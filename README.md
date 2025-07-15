@@ -54,16 +54,41 @@ In the terminal the following should be typed.
 ```
 git clone https://github.com/ANL-CEEESA/STREAM.git
 ```
-This will clone the repository. Then at the `STREAM` repository, start the Julia
-`REPL` by typing in the terminal:
+This will clone the repository. Then *at* the `STREAM` repository, start the
+Julia `REPL` by typing in the terminal:
 ```
 julia
 ```
-Then, at the `REPL` pressing the `]` key one should type:
+Then, at the `REPL` pressing the `]` key one, would start the package manager,
+i.e.,
 ```
-add .
+(@v1.11) pkg> 
 ```
-This will get `stre3am` ready to run. The final step is optional. 
+At this point the following command should activate the environment,
+```
+activate .
+```
+Followed by
+```
+instantiate
+```
+This will get the `stre3am` module ready to be used. E.g. at the command-line
+interface, 
+```
+user@local directory % julia --project=/path_to_STREAM/
+               _
+   _       _ _(_)_     |  Documentation: https://docs.julialang.org
+  (_)     | (_) (_)    |
+   _ _   _| |_  __ _   |  Type "?" for help, "]?" for Pkg help.
+  | | | | | | |/ _` |  |
+  | | |_| | | | (_| |  |  Version 1.11.6 (2025-07-09)
+ _/ |\__'_|_|_|\__'_|  |  Official https://julialang.org/ release
+|__/                   |
+
+julia> using stre3am
+```
+
+The final step is optional. 
 At the `STREAM` folder, the following must by typed in the terminal:
 ```
 conda env create --name stre3am --file environment.yml 
@@ -78,6 +103,7 @@ Please refer to this page for further [instructions](https://anl-ceeesa.github.i
 
 - David Thierry, Argonne National Laboratory, *ESIA division*
 - Sarang Supekar, Argonne National Laboratory, *ESIA division*
+- Jeff Bennett, Argonne National Laboratory, *ESIA division*
 
 ## License
  
